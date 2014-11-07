@@ -16,7 +16,7 @@ namespace INFRA.USB
         /// unless you want a Windows event to fire when the operation is complete.
         /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        protected struct Overlapped
+        public struct Overlapped
         {
             public uint Internal;
             public uint InternalHigh;
@@ -28,7 +28,7 @@ namespace INFRA.USB
 		/// Provides details about a single USB device
 		/// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        protected struct DeviceInterfaceData
+        public struct DeviceInterfaceData
         {
             public int Size;
             public Guid InterfaceClassGuid;
@@ -39,7 +39,7 @@ namespace INFRA.USB
 		/// Provides the capabilities of a HID device
 		/// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        protected struct HidCaps
+        public struct HidCaps
         {
             public short Usage;
             public short UsagePage;
@@ -81,7 +81,37 @@ namespace INFRA.USB
             public Guid ClassGuid;
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
             public string Name;
-        }		
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public class DevBroadcastDeviceinterface
+        {
+            internal Int32 dbcc_size;
+            internal Int32 dbcc_devicetype;
+            internal Int32 dbcc_reserved;
+            internal Guid dbcc_classguid;
+            internal Int16 dbcc_name;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        public class DevBroadcastDeviceinterface1
+        {
+            internal Int32 dbcc_size; internal Int32 dbcc_devicetype; internal Int32 dbcc_reserved;
+
+            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.U1, SizeConst = 16)]
+            internal Byte[] dbcc_classguid;
+
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 255)]
+            internal Char[] dbcc_name;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public class DevBroadcastHdr
+        {
+            internal Int32 dbch_size;
+            internal Int32 dbch_devicetype;
+            internal Int32 dbch_reserved;
+        }
         #endregion
 
         #region Constants

@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
 using INFRA.USB;
+using VoltageCurrentGraphApp;
 
 namespace UsbHidApp
 {
@@ -21,23 +22,23 @@ namespace UsbHidApp
             usbPort1.OnDeviceAttached += new EventHandler(usbPort1_OnDeviceAttached);
             usbPort1.OnDeviceRemoved += new EventHandler(usbPort1_OnDeviceRemoved);
             usbPort1.OnDataRecieved += new DataRecievedEventHandler(usbPort1_OnDataRecieved);
-            usbPort1.CheckDevice();
+            //usbPort1.CheckDevice();
         }
 
         void usbPort1_OnDataRecieved(object sender, DataRecievedEventArgs e)
         {
-            textBox1.Text = e.Data.ToString();
+            ThreadHelperClass.SetText(this, textBox1, e.Data[2].ToString());
         }
 
         protected override void OnHandleCreated(EventArgs e)
         {
-            usbPort1.RegisterHandle(Handle);
+            //usbPort1.RegisterHandle(Handle);
             base.OnHandleCreated(e);
         }
 
         protected override void WndProc(ref Message m)
         {
-            usbPort1.ParseMessages(ref m);
+            //usbPort1.ParseMessages(ref m);
             base.WndProc(ref m);
         }
 

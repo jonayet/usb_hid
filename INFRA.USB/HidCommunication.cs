@@ -184,12 +184,6 @@ namespace INFRA.USB
                 Debug.WriteLine(ex1.ToString());
                 //throw new HIDDeviceException("Device was removed.");
             }
-            catch (Exception ex2)
-            {
-                CloseHandle(DeviceHandle);
-                Debug.WriteLine(ex2.ToString());
-                throw new HIDDeviceException("Unknown error.");
-            }
         }
         #endregion
 

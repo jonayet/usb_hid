@@ -13,7 +13,7 @@ namespace INFRA.USB
     /// This class provides an usb component. This can be placed ont to your form.
     /// </summary>
     [ToolboxBitmap(typeof (UsbPort), "UsbHidBmp.bmp")]
-    public partial class UsbPort : Component
+    public partial class UsbPort : Control
     {
 
         #region Private members
@@ -21,9 +21,9 @@ namespace INFRA.USB
         private ushort _productId;
         private int _deviceIndex;
         private string _devicePath;
-        private DeviceInfo _deviceInfo;
+        private HidDevice _hidDevice;
         private IntPtr _usbEventHandle;
-        private HidDevice _hidCommunication;
+        private HidModule _hidCommunication;
         #endregion
 
         #region Events
@@ -97,12 +97,14 @@ namespace INFRA.USB
 
         public bool IsConnected
         {
-            get { return _hidCommunication.IsConnected; }
+            get
+            {
+                return true; /*_hidCommunication.IsConnected;*/ }
         }
 
-        public DeviceInfo DeviceInfo
+        public HidDevice HidDevice
         {
-            get { return _deviceInfo; }
+            get { return _hidDevice; }
         } 
         #endregion
 
@@ -114,7 +116,7 @@ namespace INFRA.USB
             _productId = 0;
             _deviceIndex = 0;
             _devicePath = "";
-            _deviceInfo = new DeviceInfo();
+            _hidDevice = new HidDevice();
 
             InitializeComponent();
         }
@@ -125,7 +127,7 @@ namespace INFRA.USB
             _productId = PID;
             _vendorId = VID;
             _deviceIndex = DeviceIndex;
-            _hidCommunication = new HidDevice(VID, PID);
+            _hidCommunication = new HidModule(VID, PID);
         } 
         #endregion
 
@@ -201,12 +203,12 @@ namespace INFRA.USB
         {
             try
             {
-                _hidCommunication.FindDevice();
+                //_hidCommunication.FindDevice();
                 
                 // look for the device on the USB bus
-                if (wasConnected != _hidCommunication.IsConnected)
+                //if (wasConnected != _hidCommunication.IsConnected)
                 {
-                    if (_hidCommunication.IsConnected)
+                    //if (_hidCommunication.IsConnected)
                     {
                         if (OnDeviceAttached != null)
                         {
@@ -223,7 +225,7 @@ namespace INFRA.USB
                             _hidCommunication.DataSent += new DataSentEventHandler(OnDataSent);
                         }
                     }
-                    else
+                    //else
                     {
                         if (OnDeviceRemoved != null)
                         {
@@ -242,7 +244,7 @@ namespace INFRA.USB
                     }
 
                     //Mind if the specified device existed before.
-                    wasConnected = _hidCommunication.IsConnected;
+                    //wasConnected = _hidCommunication.IsConnected;
                 }
             }
             catch (Exception ex)
