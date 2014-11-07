@@ -4,9 +4,9 @@ using System.Text;
 
 namespace INFRA.USB
 {
-    public delegate void DataSentEventHandler(object sender, DataSentEventArgs args);
-    public delegate void DataRecievedEventHandler(object sender, DataRecievedEventArgs args);
-    public delegate void SerialPacketRecievedEventHandler(object sender, SerialPacketRecievedEventArgs args);
+    public delegate void DataSentEventHandler(object sender, DataSentEventArgs e);
+    public delegate void DataRecievedEventHandler(object sender, DataRecievedEventArgs e);
+    public delegate void SerialPacketRecievedEventHandler(object sender, SerialPacketRecievedEventArgs e);
 
     public class DataSentEventArgs : EventArgs
     {

@@ -10,20 +10,23 @@ using System.Text;
 
 namespace INFRA.USB
 {
-    internal class HidDevice : BasicHidDevice
+    internal class HidDevice : HidCommunication
     {
         #region Public Fields
         /// <summary>Vendor ID</summary>
-        public ushort VendorID { get; private set; }
+        public ushort VendorID { get; set; }
 
         /// <summary>Product ID</summary>
-        public ushort ProductID { get; private set; }
+        public ushort ProductID { get; set; }
 
         /// <summary>Device Index</summary>
-        public int DeviceIndex { get; private set; }
+        public int DeviceIndex { get; set; }
 
         /// <summary>File path of the device</summary>
         public string DevicePath { get; private set; }
+
+        /// <summary>IsConnected</summary>
+        public bool IsConnected { get; private set; }
 
         /// <summary>Details Device Information</summary>
         public DeviceInfo DeviceInfo
@@ -42,13 +45,15 @@ namespace INFRA.USB
                     SerialNumber = HidD_GetSerialNumberString(DeviceHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
                     MaxInputReportLength = this.MaxInputReportLength,
                     MaxOutputReportLength = this.MaxOutputReportLength,
-                    ProductVersion = this.ProductVersion.ToString(),
+                    ProductVersion = _productVersion.ToString(),
                 };
                 return devInfo;
             }
         }
 
         #endregion
+
+        private int _productVersion;
 
         #region Constructors
         /// <summary>
@@ -57,8 +62,15 @@ namespace INFRA.USB
         /// <param name="devicePath"></param>
         public HidDevice(string devicePath)
         {
+            VendorID = 0;
+            ProductID = 0;
             DeviceIndex = 0;
-            Initialize(devicePath);
+            DevicePath = devicePath;
+
+            if(FindDevice())
+            {
+                Open(DevicePath);
+            }
         }
 
         /// <summary>
@@ -72,7 +84,11 @@ namespace INFRA.USB
             VendorID = vendorId;
             ProductID = productId;
             DeviceIndex = index;
-            FindDevice();
+
+            if (FindDevice())
+            {
+                Open(DevicePath);
+            }
         }
         
         #endregion
@@ -80,11 +96,20 @@ namespace INFRA.USB
         #region Public Methods
         public bool FindDevice()
         {
-            List<string> devicePathList = new List<string>();
+            var devicePathList = new List<string>();
+            IsConnected = false;
 
             // first, build the path search string
-            string strSearch = string.Format("vid_{0:x4}&pid_{1:x4}", VendorID, ProductID);
-
+            string searchText;
+            if (VendorID == 0 && ProductID == 0 && DeviceIndex == 0)
+            {
+                searchText = DevicePath;
+            }
+            else
+            {
+                searchText = string.Format("vid_{0:x4}&pid_{1:x4}", VendorID, ProductID);   
+            }
+            
             // next, get the GUID from Windows that it uses to represent the HID USB interface
             Guid gHid = HIDGuid;
 
@@ -105,7 +130,7 @@ namespace INFRA.USB
                     string strDevicePath = GetDevicePath(hInfoSet, ref oInterface);
 
                     // do a string search, if we find the VID/PID string then we found our device!
-                    if (strDevicePath != null && strDevicePath.Contains(strSearch))
+                    if (strDevicePath != null && strDevicePath.Contains(searchText))
                     {
                         devicePathList.Add(strDevicePath);
                     }
@@ -117,10 +142,7 @@ namespace INFRA.USB
                     if (!string.IsNullOrEmpty(devicePathList[DeviceIndex]))
                     {
                         DevicePath = devicePathList[DeviceIndex];
-                        if (!IsInitialized)
-                        {
-                            Initialize(DevicePath);
-                        }
+                        IsConnected = true;
                         return true;
                     }
                 }
@@ -138,6 +160,16 @@ namespace INFRA.USB
         #endregion
 
         #region Private helper methods
+
+        private bool GetAttributes()
+        {
+            var attributes = new HIDD_ATTRIBUTES();
+            attributes.Size = Marshal.SizeOf(attributes);
+            if (!HidD_GetAttributes(DeviceHandle, ref attributes)) { return false; }
+            _productVersion = attributes.VersionNumber;
+            return true;
+        }
+
         /// <summary>
         /// Helper method to return the device path given a DeviceInterfaceData structure and an InfoSet handle.
         /// Used in 'FindDevice' so check that method out to see how to get an InfoSet handle and a DeviceInterfaceData.
@@ -194,12 +226,10 @@ namespace INFRA.USB
         protected override void OnDataReceived(InputReport report)
         {
             // Fire the event handler if assigned
-            DataRecievedEventHandler handler;
-            lock (DataReceived) { handler = DataReceived; }
-            if (handler == null) return;
+            if (DataReceived == null) return;
             var reportData = new byte[MaxOutputReportLength - 1];
             Array.Copy(report.Buffer, 1, reportData, 0, reportData.Length);
-            handler(this, new DataRecievedEventArgs(reportData));
+            DataReceived(this, new DataRecievedEventArgs(reportData));
         } 
         #endregion
 

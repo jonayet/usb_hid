@@ -20,7 +20,13 @@ namespace UsbHidApp
             usbPort1 = new UsbPort(0x1FBD, 0x0003);
             usbPort1.OnDeviceAttached += new EventHandler(usbPort1_OnDeviceAttached);
             usbPort1.OnDeviceRemoved += new EventHandler(usbPort1_OnDeviceRemoved);
+            usbPort1.OnDataRecieved += new DataRecievedEventHandler(usbPort1_OnDataRecieved);
             usbPort1.CheckDevice();
+        }
+
+        void usbPort1_OnDataRecieved(object sender, DataRecievedEventArgs e)
+        {
+            textBox1.Text = e.Data.ToString();
         }
 
         protected override void OnHandleCreated(EventArgs e)

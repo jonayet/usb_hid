@@ -60,7 +60,7 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BasicHidDevice.cs" />
+    <Compile Include="HidCommunication.cs" />
     <Compile Include="EventHelper.cs" />
     <Compile Include="DeviceInfo.cs" />
     <Compile Include="HidToSerial.cs" />

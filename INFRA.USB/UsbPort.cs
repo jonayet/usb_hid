@@ -23,7 +23,7 @@ namespace INFRA.USB
         private string _devicePath;
         private DeviceInfo _deviceInfo;
         private IntPtr _usbEventHandle;
-        private HidDevice _hidDevice;
+        private HidDevice _hidCommunication;
         #endregion
 
         #region Events
@@ -97,7 +97,7 @@ namespace INFRA.USB
 
         public bool IsConnected
         {
-            get { return _hidDevice.IsConnected; }
+            get { return _hidCommunication.IsConnected; }
         }
 
         public DeviceInfo DeviceInfo
@@ -114,7 +114,6 @@ namespace INFRA.USB
             _productId = 0;
             _deviceIndex = 0;
             _devicePath = "";
-            _hidDevice = new HidDevice("");
             _deviceInfo = new DeviceInfo();
 
             InitializeComponent();
@@ -126,7 +125,7 @@ namespace INFRA.USB
             _productId = PID;
             _vendorId = VID;
             _deviceIndex = DeviceIndex;
-            _hidDevice = new HidDevice(VID, PID);
+            _hidCommunication = new HidDevice(VID, PID);
         } 
         #endregion
 
@@ -147,7 +146,6 @@ namespace INFRA.USB
         {
             Win32Usb.RegisterForUsbEvents(Handle, Win32Usb.HIDGuid);
             _usbEventHandle = Handle;
-            //CheckDevicePresent();
         }
 
         /// <summary>
@@ -203,12 +201,12 @@ namespace INFRA.USB
         {
             try
             {
-                _hidDevice.FindDevice();
+                _hidCommunication.FindDevice();
                 
                 // look for the device on the USB bus
-                if (wasConnected != _hidDevice.IsConnected)
+                if (wasConnected != _hidCommunication.IsConnected)
                 {
-                    if (_hidDevice.IsConnected)
+                    if (_hidCommunication.IsConnected)
                     {
                         if (OnDeviceAttached != null)
                         {
@@ -217,12 +215,12 @@ namespace INFRA.USB
 
                         if (OnDataRecieved != null)
                         {
-                            _hidDevice.DataReceived += new DataRecievedEventHandler(OnDataRecieved);
+                            _hidCommunication.DataReceived += new DataRecievedEventHandler(OnDataRecieved);
                         }
 
                         if (OnDataSent != null)
                         {
-                            _hidDevice.DataSent += new DataSentEventHandler(OnDataSent);
+                            _hidCommunication.DataSent += new DataSentEventHandler(OnDataSent);
                         }
                     }
                     else
@@ -234,17 +232,17 @@ namespace INFRA.USB
 
                         if (OnDataRecieved != null)
                         {
-                            _hidDevice.DataReceived -= new DataRecievedEventHandler(OnDataRecieved);
+                            _hidCommunication.DataReceived -= new DataRecievedEventHandler(OnDataRecieved);
                         }
 
                         if (OnDataSent != null)
                         {
-                            _hidDevice.DataSent -= new DataSentEventHandler(OnDataSent);
+                            _hidCommunication.DataSent -= new DataSentEventHandler(OnDataSent);
                         }
                     }
 
                     //Mind if the specified device existed before.
-                    wasConnected = _hidDevice.IsConnected;
+                    wasConnected = _hidCommunication.IsConnected;
                 }
             }
             catch (Exception ex)

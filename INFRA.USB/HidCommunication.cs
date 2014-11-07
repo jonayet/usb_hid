@@ -12,51 +12,36 @@ namespace INFRA.USB
 	/// <summary>
 	/// Abstract HID device : Derive your new device controller class from this
 	/// </summary>
-    public abstract class BasicHidDevice : Win32Usb, IDisposable
+    public abstract class HidCommunication : Win32Usb, IDisposable
     {
-        #region private / internal Fields
-
-        /// <summary>Product Version</summary>
-        public ushort ProductVersion { get; private set; }
-
-        /// <summary>Handle to the device</summary>
-        public IntPtr DeviceHandle { get; private set; }
-
+        #region Public Fields
         /// <summary>Accessor for output report length</summary>
         public int MaxOutputReportLength { get; private set; }
 
         /// <summary>Accessor for input report length</summary>
         public int MaxInputReportLength { get; private set; }
 
-        /// <summary>IsInitialized</summary>
-        public bool IsInitialized { get; private set; }
-
-        /// <summary>IsConnected</summary>
-        public bool IsConnected { get; private set; }
+        /// <summary>Accessor for input report length</summary>
+        public bool IsOpen { get; private set; }
         #endregion
 
-        #region Privates Fields
+        #region private / internal Fields
+        /// <summary>Handle to the device</summary>
+        internal IntPtr DeviceHandle { get; private set; }
 
 		/// <summary>Filestream we can use to read/write from</summary>
         private FileStream _usbFileStream;
 	    #endregion
 
-        #region Constructor
-        public BasicHidDevice()
-        {
-            IsInitialized = false;
-        } 
-        #endregion
-
         #region Protected Methods
         /// <summary>
-		/// Initialises the device
+		/// Open the device stream
 		/// </summary>
 		/// <param name="devicePath">Path to the device.</param>
-        protected void Initialize(string devicePath)
+        protected void Open(string devicePath)
         {
+            if (IsOpen) { return; }
             if (string.IsNullOrEmpty(devicePath)) { return; }
-            IsConnected = false;
             try
             {
                 // Create the file from the device path
@@ -70,28 +55,11 @@ namespace INFRA.USB
                     throw HIDDeviceException.GenerateWithWinError("Failed to create device file");
                 }
 
-                if (!GetAttributes())
-                {
-                    DeviceHandle = IntPtr.Zero;
-                    throw HIDDeviceException.GenerateWithWinError("Failed to get Attributes");
-                }
+                GetCapabilities();
 
-                if (!GetCapabilities())
-                {
-                    DeviceHandle = IntPtr.Zero;
-                    throw HIDDeviceException.GenerateWithWinError("Failed to get Capabilities");
-                }
-
-                if (_usbFileStream == null)
-                {
-                    // create file stream from the handle
-                    _usbFileStream = new FileStream(new SafeFileHandle(DeviceHandle, false),
-                        FileAccess.Read | FileAccess.Write, MaxInputReportLength, true);
-                }
-
-                // set IsConnected flag
-                IsConnected = true;
-                IsInitialized = true;
+                 // create file stream from the handle
+                _usbFileStream = new FileStream(new SafeFileHandle(DeviceHandle, false), FileAccess.Read | FileAccess.Write, MaxInputReportLength, true);
+                IsOpen = true;
 
                 // kick off the first asynchronous read                              
                 BeginAsyncRead();
@@ -102,6 +70,25 @@ namespace INFRA.USB
                 Debug.WriteLine(ex.ToString());
             }
 		}
+
+        /// <summary>
+        /// Close the device stream
+        /// </summary>
+        protected void Close()
+        {
+            try
+            {
+                _usbFileStream.Close();
+                _usbFileStream.Dispose();
+                CloseHandle(DeviceHandle);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.ToString());
+            }
+            DeviceHandle = IntPtr.Zero;
+            IsOpen = false;
+        }
 
 		/// <summary>
 		/// Write an output report to the device.
@@ -119,13 +106,11 @@ namespace INFRA.USB
             }
             catch (IOException ex1)
             {
-                IsConnected = false;
                 Debug.WriteLine(ex1.ToString());
                 throw new HIDDeviceException("Device was removed.");
             }
 			catch(Exception ex2)
 			{
-                IsConnected = false;
                 Debug.WriteLine(ex2.ToString());
                 throw new HIDDeviceException("Unknown error.");
 			}
@@ -134,21 +119,12 @@ namespace INFRA.USB
 
         #region Private Methods
 
-        internal bool GetAttributes()
-	    {
-            var attributes = new HIDD_ATTRIBUTES();
-            attributes.Size = Marshal.SizeOf(attributes);
-            if (!HidD_GetAttributes(DeviceHandle, ref attributes)) { return false; }
-            ProductVersion = (ushort)attributes.VersionNumber;
-            return true;
-	    }
-
-        internal bool GetCapabilities()
+        private bool GetCapabilities()
         {
             // get windows to read the device data into an internal buffer
             IntPtr lpData;
             if (!HidD_GetPreparsedData(DeviceHandle, out lpData)) { return false; }
-            
+
             // extract the device capabilities from the internal buffer
             HidCaps oCaps;
             HidP_GetCaps(lpData, out oCaps);
@@ -159,6 +135,7 @@ namespace INFRA.USB
             HidD_FreePreparsedData(ref lpData);
             return true;
         }
+        
 
         /// <summary>
         /// Kicks off an asynchronous read which completes when data is read or when the device
@@ -174,13 +151,11 @@ namespace INFRA.USB
             }
             catch (IOException ex1)
             {
-                IsConnected = false;
                 Debug.WriteLine(ex1.ToString());
                 throw new HIDDeviceException("Device was removed.");
             }
             catch (Exception ex2)
             {
-                IsConnected = false;
                 Debug.WriteLine(ex2.ToString());
                 throw new HIDDeviceException("Unknown error.");
             }
@@ -198,14 +173,13 @@ namespace INFRA.USB
             {
                 // call end read : this throws any exceptions that happened during the read
                 _usbFileStream.EndRead(iResult);
-                //OnDataReceived(new InputReport(){Buffer = arrBuff});
+                OnDataReceived(new InputReport(){Buffer = arrBuff});
 
                 // when all that is done, kick off another read for the next report
                 BeginAsyncRead();
             }
             catch (IOException ex1)
             {
-                IsConnected = false;
                 CloseHandle(DeviceHandle);
                 Debug.WriteLine(ex1.ToString());
                 //throw new HIDDeviceException("Device was removed.");
@@ -213,7 +187,6 @@ namespace INFRA.USB
             catch (Exception ex2)
             {
                 CloseHandle(DeviceHandle);
-                IsConnected = false;
                 Debug.WriteLine(ex2.ToString());
                 throw new HIDDeviceException("Unknown error.");
             }
