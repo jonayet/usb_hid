@@ -14,19 +14,10 @@ namespace INFRA.USB
 	/// </summary>
     public abstract class BasicHidDevice : Win32Usb, IDisposable
     {
-        #region Publics Fields
-
-        /// <summary>Vendor ID</summary>
-        public ushort VendorID { get; private set; }
-
-        /// <summary>Product ID</summary>
-        public ushort ProductID { get; private set; }
+        #region private / internal Fields
 
         /// <summary>Product Version</summary>
         public ushort ProductVersion { get; private set; }
-
-        /// <summary>File path of the device</summary>
-        public string DevicePath { get; private set; }
 
         /// <summary>Handle to the device</summary>
         public IntPtr DeviceHandle { get; private set; }
@@ -36,6 +27,9 @@ namespace INFRA.USB
 
         /// <summary>Accessor for input report length</summary>
         public int MaxInputReportLength { get; private set; }
+
+        /// <summary>IsInitialized</summary>
+        public bool IsInitialized { get; private set; }
 
         /// <summary>IsConnected</summary>
         public bool IsConnected { get; private set; }
@@ -50,6 +44,7 @@ namespace INFRA.USB
         #region Constructor
         public BasicHidDevice()
         {
+            IsInitialized = false;
         } 
         #endregion
 
@@ -61,17 +56,12 @@ namespace INFRA.USB
         protected void Initialize(string devicePath)
         {
             if (string.IsNullOrEmpty(devicePath)) { return; }
-
-            DevicePath = devicePath;
             IsConnected = false;
             try
             {
                 // Create the file from the device path
-                if (DeviceHandle == IntPtr.Zero || DeviceHandle == InvalidHandleValue)
-                {
-                    DeviceHandle = CreateFile(devicePath, GENERIC_READ | GENERIC_WRITE, 0, IntPtr.Zero, OPEN_EXISTING,
+                DeviceHandle = CreateFile(devicePath, GENERIC_READ | GENERIC_WRITE, 0, IntPtr.Zero, OPEN_EXISTING,
                         FILE_FLAG_OVERLAPPED, IntPtr.Zero);
-                }
 
                 // if the open failed...
                 if (DeviceHandle == InvalidHandleValue)
@@ -101,6 +91,7 @@ namespace INFRA.USB
 
                 // set IsConnected flag
                 IsConnected = true;
+                IsInitialized = true;
 
                 // kick off the first asynchronous read                              
                 BeginAsyncRead();
@@ -148,8 +139,6 @@ namespace INFRA.USB
             var attributes = new HIDD_ATTRIBUTES();
             attributes.Size = Marshal.SizeOf(attributes);
             if (!HidD_GetAttributes(DeviceHandle, ref attributes)) { return false; }
-            ProductID = (ushort)attributes.ProductID;
-            VendorID = (ushort)attributes.VendorID;
             ProductVersion = (ushort)attributes.VersionNumber;
             return true;
 	    }

@@ -13,8 +13,17 @@ namespace INFRA.USB
     internal class HidDevice : BasicHidDevice
     {
         #region Public Fields
+        /// <summary>Vendor ID</summary>
+        public ushort VendorID { get; private set; }
+
+        /// <summary>Product ID</summary>
+        public ushort ProductID { get; private set; }
+
         /// <summary>Device Index</summary>
         public int DeviceIndex { get; private set; }
+
+        /// <summary>File path of the device</summary>
+        public string DevicePath { get; private set; }
 
         /// <summary>Details Device Information</summary>
         public DeviceInfo DeviceInfo
@@ -60,12 +69,21 @@ namespace INFRA.USB
         /// <param name="index">Adress index if more than one device found.</param>
         public HidDevice(ushort vendorId, ushort productId, int index = 0)
         {
+            VendorID = vendorId;
+            ProductID = productId;
             DeviceIndex = index;
+            FindDevice();
+        }
+        
+        #endregion
 
+        #region Public Methods
+        public bool FindDevice()
+        {
             List<string> devicePathList = new List<string>();
-            
+
             // first, build the path search string
-            string strSearch = string.Format("vid_{0:x4}&pid_{1:x4}", vendorId, productId);
+            string strSearch = string.Format("vid_{0:x4}&pid_{1:x4}", VendorID, ProductID);
 
             // next, get the GUID from Windows that it uses to represent the HID USB interface
             Guid gHid = HIDGuid;
@@ -94,29 +112,28 @@ namespace INFRA.USB
                 }
 
                 // initialise it with the device path
-                if (devicePathList.Count > index)
+                if (devicePathList.Count > DeviceIndex)
                 {
-                    Initialize(devicePathList[index]);
+                    if (!string.IsNullOrEmpty(devicePathList[DeviceIndex]))
+                    {
+                        DevicePath = devicePathList[DeviceIndex];
+                        if (!IsInitialized)
+                        {
+                            Initialize(DevicePath);
+                        }
+                        return true;
+                    }
                 }
             }
             catch (Exception ex)
             {
-                //throw HIDDeviceException.GenerateError(ex.ToString());
                 Debug.WriteLine(ex.ToString());
             }
             finally
             {
-                // Before we go, we have to free up the InfoSet memory reserved by SetupDiGetClassDevs
                 SetupDiDestroyDeviceInfoList(hInfoSet);
             }
-        }
-        
-        #endregion
-
-        #region Public Methods
-        public void CheckDevice()
-        {
-            Initialize(DevicePath);
+            return false;
         } 
         #endregion
 

@@ -203,7 +203,7 @@ namespace INFRA.USB
         {
             try
             {
-                _hidDevice.CheckDevice();
+                _hidDevice.FindDevice();
                 
                 // look for the device on the USB bus
                 if (wasConnected != _hidDevice.IsConnected)
