@@ -6,6 +6,8 @@ using System.Globalization;
 using System.Text;
 using System.Drawing;
 using System.Windows.Forms;
+using INFRA.USB.Classes;
+using INFRA.USB.DllWrappers;
 
 namespace INFRA.USB
 {
@@ -23,7 +25,7 @@ namespace INFRA.USB
         private string _devicePath;
         private HidDevice _hidDevice;
         private IntPtr _usbEventHandle;
-        private HidModule _hidCommunication;
+        private HidModule _hidModule;
         #endregion
 
         #region Events
@@ -127,130 +129,30 @@ namespace INFRA.USB
             _hidDevice.VendorID = VID;
             _hidDevice.ProductID = PID;
             _hidDevice.Index = DeviceIndex;
-            _hidCommunication = new HidModule(VID, PID);
+
+            _hidModule = new HidModule(VID, PID);
+            _hidModule.DeviceAttached += new EventHandler(_hidModule_DeviceAttached);
+            _hidModule.DeviceDetached += new EventHandler(_hidModule_DeviceDetached);
+        }
+
+        void _hidModule_DeviceAttached(object sender, EventArgs e)
+        {
+            if (OnDeviceAttached != null) OnDeviceAttached(this, EventArgs.Empty);
         } 
+
+        void _hidModule_DeviceDetached(object sender, EventArgs e)
+        {
+            if (OnDeviceRemoved != null) OnDeviceRemoved(this, EventArgs.Empty);
+        }
         #endregion
-
-        /// <summary>
-        /// Registers this application, so it will be notified for usb events.  
-        /// </summary>
-        /// <param name="Handle">a IntPtr, that is a handle to the application.</param>
-        /// <example> This sample shows how to implement this method in your form.
-        /// <code> 
-        ///protected override void OnHandleCreated(EventArgs e)
-        ///{
-        ///    base.OnHandleCreated(e);
-        ///    usb.RegisterHandle(Handle);
-        ///}
-        ///</code>
-        ///</example>
-        public void RegisterHandle(IntPtr Handle)
-        {
-            Win32Usb.RegisterForUsbEvents(Handle, Win32Usb.HIDGuid);
-            _usbEventHandle = Handle;
-        }
-
-        /// <summary>
-        /// Unregisters this application, so it won't be notified for usb events.  
-        /// </summary>
-        /// <returns>Returns if it wass succesfull to unregister.</returns>
-        public void UnregisterHandle()
-        {
-            if (_usbEventHandle != IntPtr.Zero)
-            {
-                Win32Usb.UnregisterForUsbEvents(_usbEventHandle);
-            }
-        }
-
-        /// <summary>
-        /// This method will filter the messages that are passed for usb device change messages only. 
-        /// And parse them and take the appropriate action 
-        /// </summary>
-        /// <param name="m">a ref to Messages, The messages that are thrown by windows to the application.</param>
-        /// <example> This sample shows how to implement this method in your form.
-        /// <code> 
-        ///protected override void WndProc(ref Message m)
-        ///{
-        ///    usb.ParseMessages(ref m);
-        ///    base.WndProc(ref m);	    // pass message on to base form
-        ///}
-        ///</code>
-        ///</example>
-        public void ParseMessages(ref Message m)
-        {
-            // we got a device change message! A USB device was inserted or removed
-            if (m.Msg == Win32Usb.WM_DEVICECHANGE)
-            {
-                switch (m.WParam.ToInt32()) // Check the W parameter to see if a device was inserted or removed
-                {
-                    case Win32Usb.DEVICE_ARRIVAL: // inserted
-                        CheckDevice();
-                        break;
-                    case Win32Usb.DEVICE_REMOVECOMPLETE: // removed
-                        CheckDevice();
-                        break;
-                }
-            }
-        }
-
-        private bool wasConnected = false;
 
         /// <summary>
         /// Checks the devices that are present at the moment and checks if one of those
         /// is the device you defined by filling in the product id and vendor id.
         /// </summary>
-        public void CheckDevice()
+        public void FindTargetDevice()
         {
-            try
-            {
-                //_hidCommunication.FindDevice();
-                
-                // look for the device on the USB bus
-                //if (wasConnected != _hidCommunication.IsConnected)
-                {
-                    //if (_hidCommunication.IsConnected)
-                    {
-                        if (OnDeviceAttached != null)
-                        {
-                            OnDeviceAttached(this, EventArgs.Empty);
-                        }
-
-                        if (OnDataRecieved != null)
-                        {
-                            _hidCommunication.DataReceived += new DataRecievedEventHandler(OnDataRecieved);
-                        }
-
-                        if (OnDataSent != null)
-                        {
-                            _hidCommunication.DataSent += new DataSentEventHandler(OnDataSent);
-                        }
-                    }
-                    //else
-                    {
-                        if (OnDeviceRemoved != null)
-                        {
-                            OnDeviceRemoved(this, EventArgs.Empty);
-                        }
-
-                        if (OnDataRecieved != null)
-                        {
-                            _hidCommunication.DataReceived -= new DataRecievedEventHandler(OnDataRecieved);
-                        }
-
-                        if (OnDataSent != null)
-                        {
-                            _hidCommunication.DataSent -= new DataSentEventHandler(OnDataSent);
-                        }
-                    }
-
-                    //Mind if the specified device existed before.
-                    //wasConnected = _hidCommunication.IsConnected;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex.ToString());
-            }
+            _hidModule.FindTargetDevice();
         }
     }
 }

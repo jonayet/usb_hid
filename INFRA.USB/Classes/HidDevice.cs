@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Microsoft.Win32.SafeHandles;
+﻿using Microsoft.Win32.SafeHandles;
 
-namespace INFRA.USB
+namespace INFRA.USB.Classes
 {
     /// <summary>
     /// Class containg information about a connected USB HID device

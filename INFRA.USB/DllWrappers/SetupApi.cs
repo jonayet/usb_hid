@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Runtime.InteropServices;
-using INFRA.USB;
+using INFRA.USB.Classes;
 
-namespace UsbHid.USB.Classes.DllWrappers
+namespace INFRA.USB.DllWrappers
 {
-    public static class SetupApi
+    internal static class SetupApi
     {
         [DllImport("setupapi.dll", SetLastError = true)]
         public static extern Int32 SetupDiCreateDeviceInfoList(ref Guid classGuid, Int32 hwndParent);
@@ -16,9 +16,9 @@ namespace UsbHid.USB.Classes.DllWrappers
         public static extern IntPtr SetupDiGetClassDevs(ref Guid lpHidGuid, IntPtr enumerator, IntPtr hwndParent, Int32 flags);
 
         [DllImport("setupapi.dll", SetLastError = true)]
-        public static extern bool SetupDiEnumDeviceInterfaces(IntPtr deviceInfoSet, IntPtr deviceInfoData, ref Guid hidGuid, Int32 memberIndex, ref Win32Usb.DeviceInterfaceData deviceInterfaceData);
+        public static extern bool SetupDiEnumDeviceInterfaces(IntPtr deviceInfoSet, IntPtr deviceInfoData, ref Guid hidGuid, Int32 memberIndex, ref Structures.SpDeviceInterfaceData deviceInterfaceData);
 
         [DllImport("setupapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        public static extern bool SetupDiGetDeviceInterfaceDetail(IntPtr deviceInfoSet, ref Win32Usb.DeviceInterfaceData deviceInterfaceData, IntPtr deviceInterfaceDetailData, Int32 deviceInterfaceDetailDataSize, ref Int32 requiredSize, IntPtr deviceInfoData);
+        public static extern bool SetupDiGetDeviceInterfaceDetail(IntPtr deviceInfoSet, ref Structures.SpDeviceInterfaceData deviceInterfaceData, ref Structures.SpDeviceInterfaceDetailData deviceInterfaceDetailData, int deviceInterfaceDetailDataSize, IntPtr requiredSize, IntPtr deviceInfoData);
     }
 }

@@ -1,17 +1,14 @@
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
-using System.Globalization;
-using System.Net.Sockets;
 using System.Runtime.InteropServices;
-using System.Runtime.Serialization.Formatters;
 using System.Text;
-using UsbHid.USB.Classes;
+using System.Windows.Forms;
+using INFRA.USB.Classes;
+using INFRA.USB.DllWrappers;
 
 namespace INFRA.USB
 {
-    internal class HidModule : Win32Usb
+    internal class HidModule
     {
         #region Public Fields
         /// <summary>Details Device Information</summary>
@@ -26,9 +23,9 @@ namespace INFRA.USB
                     ProductID = _hidDevice.ProductID,
                     Index = _hidDevice.Index,
                     PathString = _hidDevice.PathString,
-                    Manufacturer = HidD_GetManufacturerString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
-                    ProductName = HidD_GetProductString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
-                    SerialNumber = HidD_GetSerialNumberString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
+                    Manufacturer = Hid.HidD_GetManufacturerString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
+                    ProductName = Hid.HidD_GetProductString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
+                    SerialNumber = Hid.HidD_GetSerialNumberString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
                     MaxInputReportLength = _hidDevice.MaxInputReportLength,
                     MaxOutputReportLength = _hidDevice.MaxOutputReportLength,
                     ProductVersion = _productVersion.ToString(),
@@ -41,7 +38,7 @@ namespace INFRA.USB
 
         #region private fields
         private HidDevice _hidDevice;
-        private HidDiscovery _hidDiscovery;
+        private HidDeviceDiscovery _hidDeviceDiscovery;
         private HidCommunication _hidCommunication;
         private int _productVersion;
         #endregion
@@ -54,10 +51,16 @@ namespace INFRA.USB
         public HidModule(string devicePath)
         {
             _hidDevice = new HidDevice {PathString = devicePath};
-            _hidDiscovery = new HidDiscovery(ref _hidDevice);
+            _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
             _hidCommunication = new HidCommunication(ref _hidDevice);
-            if (_hidDiscovery.FindTargetDevice())
+
+            // start Hid device Notifier event
+            var devNotifier = new HidDeviceNotifier(ref _hidDevice);
+            devNotifier.Start();
+
+            if (_hidDeviceDiscovery.FindTargetDevice())
             {
+                if (DeviceAttached != null) DeviceAttached(this, EventArgs.Empty);
                 _hidCommunication.Open();
             }
         }
@@ -71,35 +74,63 @@ namespace INFRA.USB
         public HidModule(ushort vendorId, ushort productId, int index = 0)
         {
             _hidDevice = new HidDevice {VendorID = vendorId, ProductID = productId, Index = index};
-            _hidDiscovery = new HidDiscovery(ref _hidDevice);
-
-            var devNotifier = new DeviceChangeNotifier(ref _hidDevice);
-            devNotifier.Start();
-
-            if (_hidDiscovery.FindTargetDevice())
-            {
-                //Open(DevicePath);
-            }
-
+            _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
+            _hidCommunication = new HidCommunication(ref _hidDevice);
             
+            // start Hid device Notifier event
+            var devNotifier = new HidDeviceNotifier(ref _hidDevice);
+            HidDeviceNotifier.DeviceAttached += new EventHandler(devNotifier_DeviceAttached);
+            HidDeviceNotifier.DeviceDetached += new EventHandler(devNotifier_DeviceDetached);
+            devNotifier.Start();
         }
+
+        void devNotifier_DeviceAttached(object sender, EventArgs e)
+        {
+            if (DeviceAttached != null) DeviceAttached(this, EventArgs.Empty);
+            _hidCommunication.Open();
+        }
+
+        void devNotifier_DeviceDetached(object sender, EventArgs e)
+        {
+            _hidCommunication.Close();   
+            if (DeviceDetached != null) DeviceDetached(this, EventArgs.Empty);
+        }
+
         #endregion
 
         #region Public Methods
+        internal void FindTargetDevice()
+        {
+            if (_hidDeviceDiscovery.FindTargetDevice())
+            {
+                if (DeviceAttached != null) DeviceAttached(this, EventArgs.Empty);
+                _hidCommunication.Open();
+            }
+        }
         #endregion
 
         #region Private helper methods
         private bool GetAttributes()
         {
-            var attributes = new HIDD_ATTRIBUTES();
+            var attributes = new Structures.HidDAttributes();
             attributes.Size = Marshal.SizeOf(attributes);
-            if (!HidD_GetAttributes(_hidDevice.HidHandle, ref attributes)) { return false; }
+            if (!Hid.HidD_GetAttributes(_hidDevice.HidHandle, ref attributes)) { return false; }
             _productVersion = attributes.VersionNumber;
             return true;
         }
         #endregion
 
         #region Event properties
+        /// <summary>
+        /// Event handler called after Data sent complete.
+        /// </summary>
+        internal event EventHandler DeviceAttached;
+
+        /// <summary>
+        /// Event handler called when new data received.
+        /// </summary>
+        internal event EventHandler DeviceDetached;
+
         /// <summary>
         /// Event handler called after Data sent complete.
         /// </summary>

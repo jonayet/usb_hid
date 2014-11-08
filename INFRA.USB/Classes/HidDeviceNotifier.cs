@@ -3,40 +3,31 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
-using UsbHid.USB.Classes;
+using INFRA.USB.DllWrappers;
 
-namespace INFRA.USB
+namespace INFRA.USB.Classes
 {
-    internal class DeviceChangeNotifier : Form
+    public class HidDeviceNotifier : Form
     {
-
         #region event handlers
-        public delegate void DeviceAttachedDelegate();
-        public static event DeviceAttachedDelegate DeviceAttached;
-
-        public delegate void DeviceDetachedDelegate();
-        public static event DeviceDetachedDelegate DeviceDetached; 
+        public static event EventHandler DeviceAttached;
+        public static event EventHandler DeviceDetached; 
         #endregion
 
         #region private fields
         private HidDevice _hidDevice;
-        private DeviceChangeNotifier _instance; 
+        private HidDeviceNotifier _instance; 
         #endregion
 
         #region constructor
-        public DeviceChangeNotifier()
-        {
-
-        }
-
-        public DeviceChangeNotifier(ref HidDevice hidDevice)
+        public HidDeviceNotifier(ref HidDevice hidDevice)
         {
             _hidDevice = hidDevice;
         } 
         #endregion
 
-        #region internal methods
-        internal void Start()
+        #region public methods
+        public void Start()
         {
             var t = new Thread(RunForm);
             t.SetApartmentState(ApartmentState.STA);
@@ -44,7 +35,7 @@ namespace INFRA.USB
             t.Start();
         }
 
-        internal void Stop()
+        public void Stop()
         {
             try
             {
@@ -56,27 +47,29 @@ namespace INFRA.USB
                 Debug.WriteLine(ex.Message);
             }
         }
+        #endregion
 
+        #region private helper methods
         /// <summary>
         /// registerForDeviceNotification - registers the window (identified by the windowHandle) for 
         /// device notification messages from Windows
         /// </summary>
-        internal void RegisterForDeviceNotifications(IntPtr windowHandle)
+        private void RegisterForDeviceNotifications(IntPtr windowHandle)
         {
             Debug.WriteLine(string.Format("usbGenericHidCommunication:registerForDeviceNotifications() -> Method called"));
-            Win32Usb.RegisterForUsbEvents(windowHandle, Win32Usb.HIDGuid);
+            User32.RegisterForUsbEvents(windowHandle, Hid.HIDGuid);
         }
 
         /// <summary>
         /// Handle System Device Notification for our Target Device
         /// </summary>
         /// <param name="m"></param>
-        internal void HandleDeviceNotificationMessages(Message m)
+        private void HandleDeviceNotificationMessages(Message m)
         {
             Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> Method called"));
 
             // Make sure this is a device notification
-            if (m.Msg != Constants.WmDevicechange) { return; }
+            if (m.Msg != Constants.WM_DEVICECHANGE) { return; }
             Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> Device notification received"));
 
             try
@@ -84,7 +77,7 @@ namespace INFRA.USB
                 switch (m.WParam.ToInt32())
                 {
                     // Device attached
-                    case Constants.DbtDevicearrival:
+                    case Constants.DEVICE_ARRIVAL:
                         Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> A new device attached"));
 
                         // Was this our target device?  
@@ -92,13 +85,13 @@ namespace INFRA.USB
                         {
                             _hidDevice.IsAttached = true;
                             // If so attach the USB device.
-                            Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> The target USB device has been attached - opening..."));
+                            Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> The target USB device has been attached -------- :)"));
                             ReportDeviceAttached(m);
                         }
                         break;
 
                     // Device removed
-                    case Constants.DbtDeviceremovecomplete:
+                    case Constants.DEVICE_REMOVECOMPLETE:
                         Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> A device has been removed"));
 
                         // Was this our target device?  
@@ -106,7 +99,7 @@ namespace INFRA.USB
                         {
                             _hidDevice.IsAttached = false;
                             // If so detach the USB device.
-                            Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> The target USB device has been removed - closing..."));
+                            Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> The target USB device has been removed ----------- :("));
                             ReportDeviceDetached(m);
                         }
                         break;
@@ -116,16 +109,15 @@ namespace INFRA.USB
             {
                 Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> EXCEPTION: An unknown exception has occured!"));
                 Debug.WriteLine(ex.Message);
+                throw ex;
             }
         } 
-        #endregion
-
-        #region private helper methods
+        
         private bool IsNotificationForTargetDevice(Message m)
         {
             try
             {
-                var devBroadcastHeader = new Win32Usb.DevBroadcastHdr();
+                var devBroadcastHeader = new Structures.DevBroadcastHdr();
                 Marshal.PtrToStructure(m.LParam, devBroadcastHeader);
 
                 // Is the notification event concerning a device interface?
@@ -133,7 +125,7 @@ namespace INFRA.USB
                 {
                     // Get the device path name of the affected device
                     var stringSize = Convert.ToInt32((devBroadcastHeader.dbch_size - 32) / 2);
-                    var devBroadcastDeviceInterface = new Win32Usb.DevBroadcastDeviceinterface
+                    var devBroadcastDeviceInterface = new Structures.DevBroadcastDeviceinterface
                     {
                         dbcc_name = new Char[stringSize + 1]
                     };
@@ -155,7 +147,7 @@ namespace INFRA.USB
                     }
 
                     // Compare the device name with our target device's VID, PID, Index or PathString (strings are moved to lower case)
-                    return (devicePathString.ToLower().Contains(searchText.ToLower()));
+                    if (devicePathString.ToLower().Contains(searchText.ToLower())) { return true; }
                 }
             }
             catch (Exception ex)
@@ -168,7 +160,7 @@ namespace INFRA.USB
 
         private void RunForm()
         {
-            Application.Run(new DeviceChangeNotifier(ref _hidDevice));
+            Application.Run(new HidDeviceNotifier(ref _hidDevice));
         }
 
         private void EndForm()
@@ -176,15 +168,15 @@ namespace INFRA.USB
             Close();
         }
 
-        private void ReportDeviceDetached(Message m)
-        {
-            if (DeviceDetached != null) DeviceDetached();
-        }
-
         private void ReportDeviceAttached(Message m)
         {
-            if (DeviceAttached != null) DeviceAttached();
+            if (DeviceAttached != null) DeviceAttached(this, EventArgs.Empty);
         } 
+
+        private void ReportDeviceDetached(Message m)
+        {
+            if (DeviceDetached != null) DeviceDetached(this, EventArgs.Empty);
+        }
         #endregion
 
         #region overriden methods

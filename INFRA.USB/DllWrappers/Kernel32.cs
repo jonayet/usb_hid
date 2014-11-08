@@ -2,9 +2,9 @@
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace UsbHid.USB.Classes.DllWrappers
+namespace INFRA.USB.DllWrappers
 {
-    public static class Kernel32
+    internal static class Kernel32
     {
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern Int32 CancelIo(SafeFileHandle hFile);

@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
 using INFRA.USB;
+using INFRA.USB.Classes;
 using VoltageCurrentGraphApp;
 
 namespace UsbHidApp
@@ -22,6 +23,7 @@ namespace UsbHidApp
             usbPort1.OnDeviceAttached += new EventHandler(usbPort1_OnDeviceAttached);
             usbPort1.OnDeviceRemoved += new EventHandler(usbPort1_OnDeviceRemoved);
             usbPort1.OnDataRecieved += new DataRecievedEventHandler(usbPort1_OnDataRecieved);
+            usbPort1.FindTargetDevice();
         }
 
         void usbPort1_OnDataRecieved(object sender, DataRecievedEventArgs e)
@@ -45,12 +47,12 @@ namespace UsbHidApp
 
         void usbPort1_OnDeviceRemoved(object sender, EventArgs e)
         {
-            label1.Text = "Removed";
+            ThreadHelperClass.SetText(this, label1, "Removed");
         }
 
         void usbPort1_OnDeviceAttached(object sender, EventArgs e)
         {
-            label1.Text = "Connected";
+            ThreadHelperClass.SetText(this, label1, "Attached");
         }
     }
 }

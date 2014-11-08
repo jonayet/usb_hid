@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace INFRA.USB
+namespace INFRA.USB.Classes
 {
     public delegate void DataSentEventHandler(object sender, DataSentEventArgs e);
     public delegate void DataRecievedEventHandler(object sender, DataRecievedEventArgs e);
