@@ -3,210 +3,80 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
-using INFRA.USB;
-using UsbHid.USB.Classes.DllWrappers;
+using UsbHid.USB.Classes;
 
-namespace UsbHid.USB.Classes
+namespace INFRA.USB
 {
-    public class DeviceChangeNotifier : Form
+    internal class DeviceChangeNotifier : Form
     {
-        public delegate void DeviceNotifyDelegate(Message msg);
-        public static event DeviceNotifyDelegate DeviceNotify;
 
+        #region event handlers
         public delegate void DeviceAttachedDelegate();
         public static event DeviceAttachedDelegate DeviceAttached;
 
         public delegate void DeviceDetachedDelegate();
-        public static event DeviceDetachedDelegate DeviceDetached;
+        public static event DeviceDetachedDelegate DeviceDetached; 
+        #endregion
 
-        public IntPtr DeviceNotificationHandle;
+        #region private fields
+        private HidDevice _hidDevice;
+        private DeviceChangeNotifier _instance; 
+        #endregion
 
-        private static HidDevice _hidDevice;
-
-        public DeviceChangeNotifier(HidDevice hidDevice)
+        #region constructor
+        public DeviceChangeNotifier()
         {
-            _hidDevice = hidDevice;
-            RegisterForDeviceNotifications(Handle);
+
         }
 
-        private static DeviceChangeNotifier mInstance;
+        public DeviceChangeNotifier(ref HidDevice hidDevice)
+        {
+            _hidDevice = hidDevice;
+        } 
+        #endregion
 
-        public static void Start()
+        #region internal methods
+        internal void Start()
         {
             var t = new Thread(RunForm);
             t.SetApartmentState(ApartmentState.STA);
             t.IsBackground = true;
             t.Start();
         }
-        
-        public static void Stop()
+
+        internal void Stop()
         {
             try
             {
-                if (mInstance == null) throw new InvalidOperationException("Notifier not started");
-                DeviceNotify = null;
-                mInstance.Invoke(new MethodInvoker(mInstance.EndForm));
+                if (_instance == null) throw new InvalidOperationException("Notifier not started");
+                _instance.Invoke(new MethodInvoker(_instance.EndForm));
             }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex.Message);
             }
-        }
-
-        private static void RunForm()
-        {
-            Application.Run(new DeviceChangeNotifier(_hidDevice));
-        }
-
-        private void EndForm()
-        {
-            Close();
-        }
-
-        protected override void SetVisibleCore(bool value)
-        {
-            // Prevent window getting visible
-            if (mInstance == null) 
-            {
-                mInstance = this;
-                try
-                {
-                    CreateHandle();
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine(ex.Message);
-                }
-            }
-
-            base.SetVisibleCore(false);
-        }
-        
-        protected override void WndProc(ref Message m)
-        {
-            // Trap WM_DEVICECHANGE
-            if (m.Msg == Constants.WmDevicechange)
-            {
-                HandleDeviceNotificationMessages(m);
-            }
-            base.WndProc(ref m);
         }
 
         /// <summary>
         /// registerForDeviceNotification - registers the window (identified by the windowHandle) for 
         /// device notification messages from Windows
         /// </summary>
-        public bool RegisterForDeviceNotifications(IntPtr windowHandle1)
+        internal void RegisterForDeviceNotifications(IntPtr windowHandle)
         {
             Debug.WriteLine(string.Format("usbGenericHidCommunication:registerForDeviceNotifications() -> Method called"));
-
-            // A DEV_BROADCAST_DEVICEINTERFACE header holds information about the request.
-            var devBroadcastDeviceInterface = new Win32Usb.DevBroadcastDeviceinterface();
-            var devBroadcastDeviceInterfaceBuffer = IntPtr.Zero;
-
-            // Get the required GUID
-            var systemHidGuid = new Guid();
-            Hid.HidD_GetHidGuid(ref systemHidGuid);
-
-            try
-            {
-                // Set the parameters in the DEV_BROADCAST_DEVICEINTERFACE structure.
-                var size = Marshal.SizeOf(devBroadcastDeviceInterface);
-                devBroadcastDeviceInterface.dbcc_size = size;
-                devBroadcastDeviceInterface.dbcc_devicetype = Constants.DbtDevtypDeviceinterface;
-                devBroadcastDeviceInterface.dbcc_reserved = 0;
-                devBroadcastDeviceInterface.dbcc_classguid = systemHidGuid;
-
-                devBroadcastDeviceInterfaceBuffer = Marshal.AllocHGlobal(size);
-                Marshal.StructureToPtr(devBroadcastDeviceInterface, devBroadcastDeviceInterfaceBuffer, true);
-                // Register for notifications and store the returned handle
-                DeviceNotificationHandle = User32.RegisterDeviceNotification(Handle, devBroadcastDeviceInterfaceBuffer, Constants.DeviceNotifyWindowHandle);
-
-                Marshal.PtrToStructure(devBroadcastDeviceInterfaceBuffer, devBroadcastDeviceInterface);
-
-                if ((DeviceNotificationHandle.ToInt32() == IntPtr.Zero.ToInt32()))
-                {
-                    Debug.WriteLine(string.Format("usbGenericHidCommunication:registerForDeviceNotifications() -> Notification registration failed"));
-                    return false;
-                }
-                else
-                {
-                    Debug.WriteLine(string.Format("usbGenericHidCommunication:registerForDeviceNotifications() -> Notification registration succeded"));
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(string.Format("usbGenericHidCommunication:registerForDeviceNotifications() -> EXCEPTION: An unknown exception has occured!"));
-                Debug.WriteLine(ex.Message);
-            }
-            finally
-            {
-                // Free the memory allocated previously by AllocHGlobal.
-                if (devBroadcastDeviceInterfaceBuffer != IntPtr.Zero)
-                {
-                    try
-                    {
-                        Marshal.FreeHGlobal(devBroadcastDeviceInterfaceBuffer);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine(ex.Message);
-                    }
-                }
-            } 
-
-            return false;
+            Win32Usb.RegisterForUsbEvents(windowHandle, Win32Usb.HIDGuid);
         }
 
-        private bool IsNotificationForTargetDevice(Message m)
-        {
-            if (string.IsNullOrEmpty(_hidDevice.PathString)) return false;
-
-            try
-            {
-                var devBroadcastDeviceInterface = new Win32Usb.DevBroadcastDeviceinterface1();
-                var devBroadcastHeader = new Win32Usb.DevBroadcastHdr();
-
-                try
-                {
-                    Marshal.PtrToStructure(m.LParam, devBroadcastHeader);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine(ex.Message);
-                    return false;
-                }
-
-
-                // Is the notification event concerning a device interface?
-                if ((devBroadcastHeader.dbch_devicetype == Constants.DbtDevtypDeviceinterface))
-                {
-                    // Get the device path name of the affected device
-                    var stringSize = Convert.ToInt32((devBroadcastHeader.dbch_size - 32) / 2);
-                    devBroadcastDeviceInterface.dbcc_name = new Char[stringSize + 1];
-                    Marshal.PtrToStructure(m.LParam, devBroadcastDeviceInterface);
-                    var deviceNameString = new string(devBroadcastDeviceInterface.dbcc_name, 0, stringSize);
-                    // Compare the device name with our target device's pathname (strings are moved to lower case
-                    return (string.Compare(deviceNameString.ToLower(), _hidDevice.PathString.ToLower(), StringComparison.OrdinalIgnoreCase) == 0);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(string.Format("usbGenericHidCommunication:isNotificationForTargetDevice() -> EXCEPTION: An unknown exception has occured!"));
-                Debug.WriteLine(ex.Message);
-                return false;
-            }
-            return false;
-        }
-
-        public void HandleDeviceNotificationMessages(Message m)
+        /// <summary>
+        /// Handle System Device Notification for our Target Device
+        /// </summary>
+        /// <param name="m"></param>
+        internal void HandleDeviceNotificationMessages(Message m)
         {
             Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> Method called"));
 
             // Make sure this is a device notification
-            if (m.Msg != Constants.WmDevicechange) return;
-
+            if (m.Msg != Constants.WmDevicechange) { return; }
             Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> Device notification received"));
 
             try
@@ -215,14 +85,14 @@ namespace UsbHid.USB.Classes
                 {
                     // Device attached
                     case Constants.DbtDevicearrival:
-                        Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> New device attached"));
-                        // If our target device is not currently attached, this could be our device, so we attempt to find it.
-                        if (!_hidDevice.IsAttached)
+                        Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> A new device attached"));
+
+                        // Was this our target device?  
+                        if (IsNotificationForTargetDevice(m) && !_hidDevice.IsAttached)
                         {
-                            new HidDiscovery(ref _hidDevice).FindTargetDevice();
-                        }
-                        else if (IsNotificationForTargetDevice(m))
-                        {
+                            _hidDevice.IsAttached = true;
+                            // If so attach the USB device.
+                            Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> The target USB device has been attached - opening..."));
                             ReportDeviceAttached(m);
                         }
                         break;
@@ -232,17 +102,13 @@ namespace UsbHid.USB.Classes
                         Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> A device has been removed"));
 
                         // Was this our target device?  
-                        if (IsNotificationForTargetDevice(m))
+                        if (IsNotificationForTargetDevice(m) && _hidDevice.IsAttached)
                         {
+                            _hidDevice.IsAttached = false;
                             // If so detach the USB device.
-                            Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> The target USB device has been removed - detaching..."));
+                            Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> The target USB device has been removed - closing..."));
                             ReportDeviceDetached(m);
                         }
-                        break;
-
-                    // Other message
-                    default:
-                        Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> Unknown notification message"));
                         break;
                 }
             }
@@ -251,18 +117,106 @@ namespace UsbHid.USB.Classes
                 Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> EXCEPTION: An unknown exception has occured!"));
                 Debug.WriteLine(ex.Message);
             }
+        } 
+        #endregion
+
+        #region private helper methods
+        private bool IsNotificationForTargetDevice(Message m)
+        {
+            try
+            {
+                var devBroadcastHeader = new Win32Usb.DevBroadcastHdr();
+                Marshal.PtrToStructure(m.LParam, devBroadcastHeader);
+
+                // Is the notification event concerning a device interface?
+                if (devBroadcastHeader.dbch_devicetype == Constants.DbtDevtypDeviceinterface)
+                {
+                    // Get the device path name of the affected device
+                    var stringSize = Convert.ToInt32((devBroadcastHeader.dbch_size - 32) / 2);
+                    var devBroadcastDeviceInterface = new Win32Usb.DevBroadcastDeviceinterface
+                    {
+                        dbcc_name = new Char[stringSize + 1]
+                    };
+                    Marshal.PtrToStructure(m.LParam, devBroadcastDeviceInterface);
+                    var devicePathString = new string(devBroadcastDeviceInterface.dbcc_name, 0, stringSize);
+
+                    // build the search string
+                    // if both VendorID & ProductID  are zero, search by PathString
+                    // otherwise, search by  VendorID & ProductID
+                    string searchText;
+                    if (_hidDevice.VendorID == 0 && _hidDevice.ProductID == 0)
+                    {
+                        searchText = _hidDevice.PathString;
+                        if (string.IsNullOrEmpty(searchText)) { return false; }
+                    }
+                    else
+                    {
+                        searchText = string.Format("vid_{0:x4}&pid_{1:x4}", _hidDevice.VendorID, _hidDevice.ProductID);
+                    }
+
+                    // Compare the device name with our target device's VID, PID, Index or PathString (strings are moved to lower case)
+                    return (devicePathString.ToLower().Contains(searchText.ToLower()));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(string.Format("usbGenericHidCommunication:isNotificationForTargetDevice() -> EXCEPTION: An unknown exception has occured!"));
+                Debug.WriteLine(ex.Message);
+            }
+            return false;
         }
 
-        private void ReportDeviceDetached(Message message)
+        private void RunForm()
         {
-            //if (DeviceDetached != null) DeviceDetached();
-            //if (DeviceNotify != null) DeviceNotify(message);
+            Application.Run(new DeviceChangeNotifier(ref _hidDevice));
         }
 
-        private void ReportDeviceAttached(Message message)
+        private void EndForm()
         {
-            //if (DeviceAttached != null) DeviceAttached();
-            //if (DeviceNotify != null) DeviceNotify(message);
+            Close();
         }
+
+        private void ReportDeviceDetached(Message m)
+        {
+            if (DeviceDetached != null) DeviceDetached();
+        }
+
+        private void ReportDeviceAttached(Message m)
+        {
+            if (DeviceAttached != null) DeviceAttached();
+        } 
+        #endregion
+
+        #region overriden methods
+        protected override void SetVisibleCore(bool value)
+        {
+            // Prevent window getting visible
+            if (_instance == null)
+            {
+                _instance = this;
+                try
+                {
+                    CreateHandle();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(ex.Message);
+                }
+            }
+            base.SetVisibleCore(false);
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            RegisterForDeviceNotifications(Handle);
+            base.OnHandleCreated(e);
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            HandleDeviceNotificationMessages(m);
+            base.WndProc(ref m);
+        } 
+        #endregion
     }
 }

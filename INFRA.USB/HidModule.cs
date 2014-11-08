@@ -11,7 +11,7 @@ using UsbHid.USB.Classes;
 
 namespace INFRA.USB
 {
-    internal class HidModule : HidCommunication
+    internal class HidModule : Win32Usb
     {
         #region Public Fields
         /// <summary>Details Device Information</summary>
@@ -26,11 +26,11 @@ namespace INFRA.USB
                     ProductID = _hidDevice.ProductID,
                     Index = _hidDevice.Index,
                     PathString = _hidDevice.PathString,
-                    Manufacturer = HidD_GetManufacturerString(DeviceHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
-                    ProductName = HidD_GetProductString(DeviceHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
-                    SerialNumber = HidD_GetSerialNumberString(DeviceHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
-                    MaxInputReportLength = this.MaxInputReportLength,
-                    MaxOutputReportLength = this.MaxOutputReportLength,
+                    Manufacturer = HidD_GetManufacturerString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
+                    ProductName = HidD_GetProductString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
+                    SerialNumber = HidD_GetSerialNumberString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
+                    MaxInputReportLength = _hidDevice.MaxInputReportLength,
+                    MaxOutputReportLength = _hidDevice.MaxOutputReportLength,
                     ProductVersion = _productVersion.ToString(),
                 };
                 return devInfo;
@@ -42,6 +42,7 @@ namespace INFRA.USB
         #region private fields
         private HidDevice _hidDevice;
         private HidDiscovery _hidDiscovery;
+        private HidCommunication _hidCommunication;
         private int _productVersion;
         #endregion
 
@@ -54,9 +55,10 @@ namespace INFRA.USB
         {
             _hidDevice = new HidDevice {PathString = devicePath};
             _hidDiscovery = new HidDiscovery(ref _hidDevice);
+            _hidCommunication = new HidCommunication(ref _hidDevice);
             if (_hidDiscovery.FindTargetDevice())
             {
-                //Open(DevicePath);
+                _hidCommunication.Open();
             }
         }
 
@@ -71,8 +73,8 @@ namespace INFRA.USB
             _hidDevice = new HidDevice {VendorID = vendorId, ProductID = productId, Index = index};
             _hidDiscovery = new HidDiscovery(ref _hidDevice);
 
-            DeviceChangeNotifier a = new DeviceChangeNotifier(_hidDevice);
-            DeviceChangeNotifier.Start();
+            var devNotifier = new DeviceChangeNotifier(ref _hidDevice);
+            devNotifier.Start();
 
             if (_hidDiscovery.FindTargetDevice())
             {
@@ -91,7 +93,7 @@ namespace INFRA.USB
         {
             var attributes = new HIDD_ATTRIBUTES();
             attributes.Size = Marshal.SizeOf(attributes);
-            if (!HidD_GetAttributes(DeviceHandle, ref attributes)) { return false; }
+            if (!HidD_GetAttributes(_hidDevice.HidHandle, ref attributes)) { return false; }
             _productVersion = attributes.VersionNumber;
             return true;
         }
@@ -115,32 +117,32 @@ namespace INFRA.USB
         #endregion
 
         #region Overriden Methods
-        protected override void OnDataSent(OutputReport report)
+        protected void OnDataSent(OutputReport report)
         {
             if (DataSent == null) return;
-            var reportData = new byte[MaxOutputReportLength - 1];
+            var reportData = new byte[_hidDevice.MaxOutputReportLength - 1];
             Array.Copy(report.Buffer, 1, reportData, 0, reportData.Length);
             DataSent(this, new DataSentEventArgs(reportData));
         }
 
-        protected override void OnDataReceived(InputReport report)
+        protected void OnDataReceived(InputReport report)
         {
             // Fire the event handler if assigned
             if (DataReceived == null) return;
-            var reportData = new byte[MaxOutputReportLength - 1];
+            var reportData = new byte[_hidDevice.MaxOutputReportLength - 1];
             Array.Copy(report.Buffer, 1, reportData, 0, reportData.Length);
             DataReceived(this, new DataRecievedEventArgs(reportData));
         } 
         #endregion
 
         #region Disposal methods
-        protected override void Dispose(bool bDisposing)
+        protected void Dispose(bool bDisposing)
         {
             if (bDisposing)
             {
                 // to do's before exit
             }
-            base.Dispose(bDisposing);
+            //base.Dispose(bDisposing);
         } 
         #endregion
     }

@@ -124,9 +124,9 @@ namespace INFRA.USB
         public UsbPort(ushort VID, ushort PID, int DeviceIndex = 0) : this()
         {
             //initializing in initial state
-            _productId = PID;
-            _vendorId = VID;
-            _deviceIndex = DeviceIndex;
+            _hidDevice.VendorID = VID;
+            _hidDevice.ProductID = PID;
+            _hidDevice.Index = DeviceIndex;
             _hidCommunication = new HidModule(VID, PID);
         } 
         #endregion

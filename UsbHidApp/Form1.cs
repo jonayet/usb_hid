@@ -22,7 +22,6 @@ namespace UsbHidApp
             usbPort1.OnDeviceAttached += new EventHandler(usbPort1_OnDeviceAttached);
             usbPort1.OnDeviceRemoved += new EventHandler(usbPort1_OnDeviceRemoved);
             usbPort1.OnDataRecieved += new DataRecievedEventHandler(usbPort1_OnDataRecieved);
-            //usbPort1.CheckDevice();
         }
 
         void usbPort1_OnDataRecieved(object sender, DataRecievedEventArgs e)
@@ -33,12 +32,14 @@ namespace UsbHidApp
         protected override void OnHandleCreated(EventArgs e)
         {
             //usbPort1.RegisterHandle(Handle);
+            //n.RegisterForDeviceNotifications(Handle);
             base.OnHandleCreated(e);
         }
 
         protected override void WndProc(ref Message m)
         {
             //usbPort1.ParseMessages(ref m);
+            //n.HandleDeviceNotificationMessages(m);
             base.WndProc(ref m);
         }
 

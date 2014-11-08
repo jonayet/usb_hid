@@ -71,61 +71,13 @@ namespace INFRA.USB
                 }
 
                 // is the device attached?
-                if (_hidDevice.IsAttached)
+                if (!_hidDevice.IsAttached)
                 {
-                    Debug.WriteLine("usbGenericHidCommunication:findTargetDevice() -> Performing CreateFile for HidHandle");
-                    _hidDevice.HidHandle = Kernel32.CreateFile(
-                        _hidDevice.PathString, 0,
-                        Constants.FileShareRead | Constants.FileShareWrite,
-                        IntPtr.Zero, Constants.OpenExisting,
-                        0, 0);
-
-                    // Did we open the ReadHandle successfully?
-                    if (_hidDevice.HidHandle.IsInvalid)
-                    {
-                        throw new ApplicationException("usbGenericHidCommunication:findTargetDevice() -> Unable to open a HidHandle to the device!");
-                    }
-
-                    // Query the HID device's capabilities (primarily we are only really interested in the 
-                    // input and output report byte lengths as this allows us to validate information sent
-                    // to and from the device does not exceed the devices capabilities.
-                    //
-                    // We could determine the 'type' of HID device here too, but since this class is only
-                    // for generic HID communication we don't care...
-                    GetCapabilities();
-
-                    // Open the readHandle to the device
-                    Debug.WriteLine(string.Format("usbGenericHidCommunication:findTargetDevice() -> Opening a readHandle to the device"));
-                    _hidDevice.ReadHandle = Kernel32.CreateFile(
-                        _hidDevice.PathString,
-                        Constants.GenericRead,
-                        Constants.FileShareRead | Constants.FileShareWrite,
-                        IntPtr.Zero, Constants.OpenExisting,
-                        Constants.FileFlagOverlapped,
-                        0);
-
-                    // Did we open the ReadHandle successfully?
-                    if (_hidDevice.ReadHandle.IsInvalid)
-                    {
-                        throw new ApplicationException("usbGenericHidCommunication:findTargetDevice() -> Unable to open a readHandle to the device!");
-                    }
-
-                    Debug.WriteLine(string.Format("usbGenericHidCommunication:findTargetDevice() -> Opening a writeHandle to the device"));
-                    _hidDevice.WriteHandle = Kernel32.CreateFile(
-                        _hidDevice.PathString,
-                        Constants.GenericWrite,
-                        Constants.FileShareRead | Constants.FileShareWrite,
-                        IntPtr.Zero,
-                        Constants.OpenExisting, 0, 0);
-
-                    // Did we open the writeHandle successfully?
-                    if (_hidDevice.WriteHandle.IsInvalid)
-                    {
-                        throw new ApplicationException("usbGenericHidCommunication:findTargetDevice() -> Unable to open a writeHandle to the device!");
-                    }
-
-                    return true;
+                    Debug.WriteLine("usbGenericHidCommunication:findTargetDevice() -> Target device not found!");
+                    return false;
                 }
+                Debug.WriteLine("usbGenericHidCommunication:findTargetDevice() -> Target device found! - opening...");
+                return true;
             }
             catch (Exception ex)
             {
@@ -162,34 +114,6 @@ namespace INFRA.USB
                 }
             }
             return string.Empty;
-        }
-
-        private bool GetCapabilities()
-        {
-            var preparsedData = new IntPtr();
-            try
-            {
-                // Get the preparsed data from the HID driver
-                if (!Hid.HidD_GetPreparsedData(_hidDevice.HidHandle, ref preparsedData))
-                {
-                    return false;
-                }
-
-                // extract the device capabilities from the internal buffer
-                HidCaps oCaps;
-                HidP_GetCaps(preparsedData, out oCaps);
-                _hidDevice.MaxInputReportLength = oCaps.InputReportByteLength;
-                _hidDevice.MaxOutputReportLength = oCaps.OutputReportByteLength;
-                return true;
-            }
-            finally
-            {
-                // Free up the memory before finishing
-                if (preparsedData != IntPtr.Zero)
-                {
-                    Hid.HidD_FreePreparsedData(preparsedData);
-                }
-            }
         }
         #endregion
     }

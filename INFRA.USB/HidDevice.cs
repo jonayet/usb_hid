@@ -61,6 +61,11 @@ namespace INFRA.USB
         public string Manufacturer { get; internal set; }
 
         /// <summary>
+        /// Device attached flag
+        /// </summary>
+        public bool IsAttached { get; internal set; }
+
+        /// <summary>
         /// Handle used for communicating via hid.dll
         /// </summary>
         public SafeFileHandle HidHandle { get; internal set; }
@@ -76,9 +81,9 @@ namespace INFRA.USB
         public SafeFileHandle WriteHandle { get; internal set; }
 
         /// <summary>
-        /// Device attached flag
+        /// Device handle open flag
         /// </summary>
-        public bool IsAttached { get; internal set; }
+        public bool IsOpen { get; internal set; }
 
         /// <summary>
         /// 
@@ -95,9 +100,11 @@ namespace INFRA.USB
             SerialNumber = "";
             ProductVersion = "";
             Manufacturer = "";
+            IsAttached = false;
             HidHandle = null;
             ReadHandle = null;
             WriteHandle = null;
+            IsOpen = false;
         }
     }
 }

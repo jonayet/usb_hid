@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace INFRA.USB
 {
@@ -83,24 +84,14 @@ namespace INFRA.USB
             public string Name;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
         public class DevBroadcastDeviceinterface
         {
             internal Int32 dbcc_size;
             internal Int32 dbcc_devicetype;
             internal Int32 dbcc_reserved;
-            internal Guid dbcc_classguid;
-            internal Int16 dbcc_name;
-        }
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-        public class DevBroadcastDeviceinterface1
-        {
-            internal Int32 dbcc_size; internal Int32 dbcc_devicetype; internal Int32 dbcc_reserved;
-
             [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.U1, SizeConst = 16)]
             internal Byte[] dbcc_classguid;
-
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 255)]
             internal Char[] dbcc_name;
         }
@@ -266,19 +257,19 @@ namespace INFRA.USB
 
         // http://msdn.microsoft.com/en-us/library/windows/hardware/ff538900%28v=vs.85%29.aspx
         [DllImport("hid.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        protected static extern Boolean HidD_GetAttributes(IntPtr hFile, ref HIDD_ATTRIBUTES attributes);
+        protected static extern Boolean HidD_GetAttributes(SafeFileHandle hFile, ref HIDD_ATTRIBUTES attributes);
         
         // http://msdn.microsoft.com/en-us/library/windows/hardware/ff538959%28v=vs.85%29.aspx
         [DllImport("hid.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        protected static extern Boolean HidD_GetManufacturerString(IntPtr hFile, StringBuilder buffer, Int32 bufferLength);
+        protected static extern Boolean HidD_GetManufacturerString(SafeFileHandle hFile, StringBuilder buffer, Int32 bufferLength);
 
         // http://msdn.microsoft.com/en-us/library/windows/hardware/ff539681%28v=vs.85%29.aspx
         [DllImport("hid.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        protected static extern Boolean HidD_GetProductString(IntPtr hFile, StringBuilder buffer, Int32 bufferLength);
+        protected static extern Boolean HidD_GetProductString(SafeFileHandle hFile, StringBuilder buffer, Int32 bufferLength);
 
         // http://msdn.microsoft.com/en-us/library/windows/hardware/ff539683%28v=vs.85%29.aspx
         [DllImport("hid.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        protected static extern bool HidD_GetSerialNumberString(IntPtr hDevice, StringBuilder buffer, Int32 bufferLength);
+        protected static extern bool HidD_GetSerialNumberString(SafeFileHandle hDevice, StringBuilder buffer, Int32 bufferLength);
 
 		/// <summary>
 		/// Creates/opens a file, serial port, USB device... etc

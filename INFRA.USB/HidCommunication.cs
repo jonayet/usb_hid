@@ -3,73 +3,125 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
+using UsbHid.USB.Classes;
+using UsbHid.USB.Classes.DllWrappers;
 
 namespace INFRA.USB
 {
 	/// <summary>
 	/// Abstract HID device : Derive your new device controller class from this
 	/// </summary>
-    public abstract class HidCommunication : Win32Usb, IDisposable
+    internal class HidCommunication : Win32Usb, IDisposable
     {
         #region Public Fields
-        /// <summary>Accessor for output report length</summary>
-        public int MaxOutputReportLength { get; private set; }
-
-        /// <summary>Accessor for input report length</summary>
-        public int MaxInputReportLength { get; private set; }
-
-        /// <summary>Accessor for input report length</summary>
-        public bool IsOpen { get; private set; }
         #endregion
 
         #region private / internal Fields
-        /// <summary>Handle to the device</summary>
-        internal IntPtr DeviceHandle { get; private set; }
+
+	    private HidDevice _hidDevice;
 
 		/// <summary>Filestream we can use to read/write from</summary>
         private FileStream _usbFileStream;
 	    #endregion
 
+        public HidCommunication(ref HidDevice hidDevice)
+	    {
+            _hidDevice = hidDevice;
+	    }
+
         #region Protected Methods
         /// <summary>
 		/// Open the device stream
 		/// </summary>
-		/// <param name="devicePath">Path to the device.</param>
-        protected void Open(string devicePath)
+        public bool Open()
         {
-            if (IsOpen) { return; }
-            if (string.IsNullOrEmpty(devicePath)) { return; }
+            if (!_hidDevice.IsAttached) { return false; }
+            if (_hidDevice.IsOpen) { return false; }
             try
             {
-                // Create the file from the device path
-                DeviceHandle = CreateFile(devicePath, GENERIC_READ | GENERIC_WRITE, 0, IntPtr.Zero, OPEN_EXISTING,
-                        FILE_FLAG_OVERLAPPED, IntPtr.Zero);
+                Debug.WriteLine("usbGenericHidCommunication:findTargetDevice() -> Performing CreateFile for HidHandle");
+                _hidDevice.HidHandle = Kernel32.CreateFile(
+                    _hidDevice.PathString, 0,
+                    Constants.FileShareRead | Constants.FileShareWrite,
+                    IntPtr.Zero, Constants.OpenExisting,
+                    0, 0);
 
-                // if the open failed...
-                if (DeviceHandle == InvalidHandleValue)
+                // Did we open the ReadHandle successfully?
+                if (_hidDevice.HidHandle.IsInvalid)
                 {
-                    DeviceHandle = IntPtr.Zero;
-                    throw HIDDeviceException.GenerateWithWinError("Failed to create device file");
+                    throw new ApplicationException(
+                        "usbGenericHidCommunication:findTargetDevice() -> Unable to open a HidHandle to the device!");
                 }
 
+                // Query the HID device's capabilities (primarily we are only really interested in the 
+                // input and output report byte lengths as this allows us to validate information sent
+                // to and from the device does not exceed the devices capabilities.
+                //
+                // We could determine the 'type' of HID device here too, but since this class is only
+                // for generic HID communication we don't care...
                 GetCapabilities();
 
-                 // create file stream from the handle
-                _usbFileStream = new FileStream(new SafeFileHandle(DeviceHandle, false), FileAccess.Read | FileAccess.Write, MaxInputReportLength, true);
-                IsOpen = true;
+                // Open the readHandle to the device
+                Debug.WriteLine(
+                    string.Format("usbGenericHidCommunication:findTargetDevice() -> Opening a readHandle to the device"));
+                _hidDevice.ReadHandle = Kernel32.CreateFile(
+                    _hidDevice.PathString,
+                    Constants.GenericRead,
+                    Constants.FileShareRead | Constants.FileShareWrite,
+                    IntPtr.Zero, Constants.OpenExisting,
+                    Constants.FileFlagOverlapped,
+                    0);
 
-                // kick off the first asynchronous read                              
+                // Did we open the ReadHandle successfully?
+                if (_hidDevice.ReadHandle.IsInvalid)
+                {
+                    throw new ApplicationException(
+                        "usbGenericHidCommunication:findTargetDevice() -> Unable to open a readHandle to the device!");
+                }
+
+                Debug.WriteLine(
+                    string.Format("usbGenericHidCommunication:findTargetDevice() -> Opening a writeHandle to the device"));
+                _hidDevice.WriteHandle = Kernel32.CreateFile(
+                    _hidDevice.PathString,
+                    Constants.GenericWrite,
+                    Constants.FileShareRead | Constants.FileShareWrite,
+                    IntPtr.Zero,
+                    Constants.OpenExisting, 0, 0);
+
+                // Did we open the writeHandle successfully?
+                if (_hidDevice.WriteHandle.IsInvalid)
+                {
+                    throw new ApplicationException(
+                        "usbGenericHidCommunication:findTargetDevice() -> Unable to open a writeHandle to the device!");
+                }
+                Debug.WriteLine(string.Format("usbGenericHidCommunication:findTargetDevice() -> Opening successful!"));
+
+                // start async reading
+                _usbFileStream = new FileStream(_hidDevice.ReadHandle, FileAccess.Read, _hidDevice.MaxInputReportLength,
+                    true);
                 BeginAsyncRead();
+                _hidDevice.IsOpen = true;
+                return true;
             }
             catch (Exception ex)
             {
-                DeviceHandle = IntPtr.Zero;
                 Debug.WriteLine(ex.ToString());
+                try
+                {
+                    _usbFileStream.Close();
+                    _hidDevice.ReadHandle.Close();
+                    _hidDevice.WriteHandle.Close();
+                    _hidDevice.HidHandle.Close();
+                }
+                catch { }
             }
-		}
+
+            return false;
+        }
 
         /// <summary>
         /// Close the device stream
@@ -79,15 +131,15 @@ namespace INFRA.USB
             try
             {
                 _usbFileStream.Close();
-                _usbFileStream.Dispose();
-                CloseHandle(DeviceHandle);
+                _hidDevice.ReadHandle.Close();
+                _hidDevice.WriteHandle.Close();
+                _hidDevice.HidHandle.Close();
+                _hidDevice.IsOpen = false;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex.ToString());
             }
-            DeviceHandle = IntPtr.Zero;
-            IsOpen = false;
         }
 
 		/// <summary>
@@ -97,7 +149,7 @@ namespace INFRA.USB
         protected void Write(OutputReport report)
         {
             if (report == null || report.Buffer == null) { throw new HIDDeviceException("Null data."); }
-            if (report.Buffer.Length > MaxOutputReportLength) { Array.Resize(ref report.Buffer, MaxOutputReportLength); }
+            if (report.Buffer.Length > _hidDevice.MaxOutputReportLength) { Array.Resize(ref report.Buffer, _hidDevice.MaxOutputReportLength); }
 
 		    try
             {
@@ -118,24 +170,33 @@ namespace INFRA.USB
         #endregion
 
         #region Private Methods
-
         private bool GetCapabilities()
         {
-            // get windows to read the device data into an internal buffer
-            IntPtr lpData;
-            if (!HidD_GetPreparsedData(DeviceHandle, out lpData)) { return false; }
+            var preparsedData = new IntPtr();
+            try
+            {
+                // Get the preparsed data from the HID driver
+                if (!Hid.HidD_GetPreparsedData(_hidDevice.HidHandle, ref preparsedData))
+                {
+                    return false;
+                }
 
-            // extract the device capabilities from the internal buffer
-            HidCaps oCaps;
-            HidP_GetCaps(lpData, out oCaps);
-            MaxInputReportLength = oCaps.InputReportByteLength;
-            MaxOutputReportLength = oCaps.OutputReportByteLength;
-
-            // before we quit the funtion, we must free the internal buffer reserved in GetPreparsedData
-            HidD_FreePreparsedData(ref lpData);
-            return true;
+                // extract the device capabilities from the internal buffer
+                HidCaps oCaps;
+                HidP_GetCaps(preparsedData, out oCaps);
+                _hidDevice.MaxInputReportLength = oCaps.InputReportByteLength;
+                _hidDevice.MaxOutputReportLength = oCaps.OutputReportByteLength;
+                return true;
+            }
+            finally
+            {
+                // Free up the memory before finishing
+                if (preparsedData != IntPtr.Zero)
+                {
+                    Hid.HidD_FreePreparsedData(preparsedData);
+                }
+            }
         }
-        
 
         /// <summary>
         /// Kicks off an asynchronous read which completes when data is read or when the device
@@ -143,11 +204,11 @@ namespace INFRA.USB
         /// </summary>
         private void BeginAsyncRead()
         {
-            var arrInputReport = new byte[MaxInputReportLength];
+            var arrInputReport = new byte[_hidDevice.MaxInputReportLength];
             try
             {
                 // put the buff we used to receive the stuff as the async state then we can get at it when the read completes
-                _usbFileStream.BeginRead(arrInputReport, 0, MaxInputReportLength, new AsyncCallback(ReadCompleted), arrInputReport);
+                _usbFileStream.BeginRead(arrInputReport, 0, _hidDevice.MaxInputReportLength, new AsyncCallback(ReadCompleted), arrInputReport);
             }
             catch (IOException ex1)
             {
@@ -178,10 +239,9 @@ namespace INFRA.USB
                 // when all that is done, kick off another read for the next report
                 BeginAsyncRead();
             }
-            catch (IOException ex1)
+            catch (IOException ex)
             {
-                CloseHandle(DeviceHandle);
-                Debug.WriteLine(ex1.ToString());
+                Debug.WriteLine(ex.ToString());
                 //throw new HIDDeviceException("Device was removed.");
             }
         }
@@ -230,11 +290,11 @@ namespace INFRA.USB
                         _usbFileStream.Close();
                         _usbFileStream = null;
                     }
+                    _hidDevice.ReadHandle.Close();
+                    _hidDevice.WriteHandle.Close();
+                    _hidDevice.HidHandle.Close();
                 }
-                if (DeviceHandle != IntPtr.Zero)	// Dispose and finalize, get rid of unmanaged resources
-                {
-                    CloseHandle(DeviceHandle);
-                }
+                
             }
             catch (Exception ex)
             {
