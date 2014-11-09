@@ -42,7 +42,7 @@ namespace INFRA.USB.Classes
         // Api Constatnts
         public const int FILE_FLAG_OVERLAPPED = 0x40000000;
         public const int WAIT_TIMEOUT = 0x102;
-        public const short WAIT_OBJECT0 = 0;
+        public const short WAIT_OBJECT_0 = 0;
 
         // Typedef enum defines a set of integer constants for HidP_Report_Type
         public const short HidPInput = 0;

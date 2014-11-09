@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
@@ -53,6 +54,17 @@ namespace UsbHidApp
         void usbPort1_OnDeviceAttached(object sender, EventArgs e)
         {
             ThreadHelperClass.SetText(this, label1, "Attached");
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            byte[] data = new byte[usbPort1.HidDevice.MaxInputReportLength * 20];
+            int i = data.Length;
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            usbPort1.HidCommunication.WriteRawReportToDevice(data);
+            sw.Stop();
+            MessageBox.Show(sw.Elapsed.TotalMilliseconds.ToString());
         }
     }
 }

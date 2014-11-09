@@ -16,21 +16,22 @@ namespace INFRA.USB
         {
             get
             {
-                var stringBuilder = new StringBuilder();
-                var devInfo = new HidDevice()
-                {
-                    VendorID = _hidDevice.VendorID,
-                    ProductID = _hidDevice.ProductID,
-                    Index = _hidDevice.Index,
-                    PathString = _hidDevice.PathString,
-                    Manufacturer = Hid.HidD_GetManufacturerString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
-                    ProductName = Hid.HidD_GetProductString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
-                    SerialNumber = Hid.HidD_GetSerialNumberString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
-                    MaxInputReportLength = _hidDevice.MaxInputReportLength,
-                    MaxOutputReportLength = _hidDevice.MaxOutputReportLength,
-                    ProductVersion = _productVersion.ToString(),
-                };
-                return devInfo;
+                //var stringBuilder = new StringBuilder();
+                //var devInfo = new HidDevice()
+                //{
+                //    VendorID = _hidDevice.VendorID,
+                //    ProductID = _hidDevice.ProductID,
+                //    Index = _hidDevice.Index,
+                //    PathString = _hidDevice.PathString,
+                //    Manufacturer = Hid.HidD_GetManufacturerString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
+                //    ProductName = Hid.HidD_GetProductString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
+                //    SerialNumber = Hid.HidD_GetSerialNumberString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
+                //    MaxInputReportLength = _hidDevice.MaxInputReportLength,
+                //    MaxOutputReportLength = _hidDevice.MaxOutputReportLength,
+                //    ProductVersion = _productVersion.ToString(),
+                //};
+                //return devInfo;
+                return _hidDevice;
             }
         }
 
@@ -39,7 +40,7 @@ namespace INFRA.USB
         #region private fields
         private HidDevice _hidDevice;
         private HidDeviceDiscovery _hidDeviceDiscovery;
-        private HidCommunication _hidCommunication;
+        public HidCommunication HIDCommunication;
         private int _productVersion;
         #endregion
 
@@ -52,7 +53,7 @@ namespace INFRA.USB
         {
             _hidDevice = new HidDevice {PathString = devicePath};
             _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
-            _hidCommunication = new HidCommunication(ref _hidDevice);
+            HIDCommunication = new HidCommunication(ref _hidDevice);
 
             // start Hid device Notifier event
             var devNotifier = new HidDeviceNotifier(ref _hidDevice);
@@ -61,7 +62,7 @@ namespace INFRA.USB
             if (_hidDeviceDiscovery.FindTargetDevice())
             {
                 if (DeviceAttached != null) DeviceAttached(this, EventArgs.Empty);
-                _hidCommunication.Open();
+                HIDCommunication.Open();
             }
         }
 
@@ -75,7 +76,7 @@ namespace INFRA.USB
         {
             _hidDevice = new HidDevice {VendorID = vendorId, ProductID = productId, Index = index};
             _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
-            _hidCommunication = new HidCommunication(ref _hidDevice);
+            HIDCommunication = new HidCommunication(ref _hidDevice);
             
             // start Hid device Notifier event
             var devNotifier = new HidDeviceNotifier(ref _hidDevice);
@@ -87,12 +88,12 @@ namespace INFRA.USB
         void devNotifier_DeviceAttached(object sender, EventArgs e)
         {
             if (DeviceAttached != null) DeviceAttached(this, EventArgs.Empty);
-            _hidCommunication.Open();
+            HIDCommunication.Open();
         }
 
         void devNotifier_DeviceDetached(object sender, EventArgs e)
         {
-            _hidCommunication.Close();   
+            HIDCommunication.Close();   
             if (DeviceDetached != null) DeviceDetached(this, EventArgs.Empty);
         }
 
@@ -104,7 +105,7 @@ namespace INFRA.USB
             if (_hidDeviceDiscovery.FindTargetDevice())
             {
                 if (DeviceAttached != null) DeviceAttached(this, EventArgs.Empty);
-                _hidCommunication.Open();
+                HIDCommunication.Open();
             }
         }
         #endregion

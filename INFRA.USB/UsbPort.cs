@@ -107,6 +107,12 @@ namespace INFRA.USB
         public HidDevice HidDevice
         {
             get { return _hidDevice; }
+        }
+
+
+        public HidCommunication HidCommunication
+        {
+            get { return _hidModule.HIDCommunication; }
         } 
         #endregion
 
@@ -133,6 +139,7 @@ namespace INFRA.USB
             _hidModule = new HidModule(VID, PID);
             _hidModule.DeviceAttached += new EventHandler(_hidModule_DeviceAttached);
             _hidModule.DeviceDetached += new EventHandler(_hidModule_DeviceDetached);
+            _hidDevice = _hidModule.HidDevice;
         }
 
         void _hidModule_DeviceAttached(object sender, EventArgs e)
