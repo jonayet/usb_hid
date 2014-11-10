@@ -146,33 +146,7 @@ namespace INFRA.USB.Classes
             }
         }
 
-		/// <summary>
-		/// Write an output report to the device.
-		/// </summary>
-        /// <param name="report">Output report to write</param>
-        protected void Write(OutputReport report)
-        {
-            if (report == null || report.Buffer == null) { throw new HidDeviceException("Null data."); }
-            if (report.Buffer.Length > _hidDevice.MaxOutputReportLength) { Array.Resize(ref report.Buffer, _hidDevice.MaxOutputReportLength); }
-
-		    try
-            {
-                _usbWriteFileStream.Write(report.Buffer, 0, report.Buffer.Length);
-                OnDataSent(report);
-            }
-            catch (IOException ex)
-            {
-                Debug.WriteLine(ex.ToString());
-                //throw new HidDeviceException("Device was removed.");
-            }
-        }
-        #endregion
-
-
-
-
-
-        public bool WriteRawReportToDevice(byte[] outputReportBuffer)
+        public bool WriteRawReportToDevice(ref byte[] outputReportBuffer)
         {
             // Make sure a device is attached & opened
             if (!_hidDevice.IsAttached | !_hidDevice.IsOpen)
@@ -181,13 +155,11 @@ namespace INFRA.USB.Classes
                 return false;
             }
 
-            var numberOfBytesWritten = 0;
+            // resize array if nescecery
+            if (outputReportBuffer.Length != _hidDevice.MaxOutputReportLength) { Array.Resize(ref outputReportBuffer, _hidDevice.MaxOutputReportLength); }
+
             try
             {
-                // Set an output report via interrupt to the device
-                //var success = Kernel32.WriteFile( _hidDevice.WriteHandle, outputReportBuffer, outputReportBuffer.Length, ref numberOfBytesWritten, IntPtr.Zero);
-                //Debug.WriteLine(success ? "usbGenericHidCommunication:writeReportToDevice(): -> Write report succeeded"
-                //                        : "usbGenericHidCommunication:writeReportToDevice(): -> Write report failed!");
                 lock (_usbWriteFileStream)
                 {
                     _usbWriteFileStream.BeginWrite(outputReportBuffer, 0, outputReportBuffer.Length, RawReportWriteComplete, null);
@@ -195,10 +167,11 @@ namespace INFRA.USB.Classes
                 }
                 return true;
             }
-            catch (Exception)
+            catch (IOException ex)
             {
                 // An error - send out some debug and return failure
-                Debug.WriteLine(string.Format("usbGenericHidCommunication:writeReportToDevice(): -> EXCEPTION: When attempting to send an output report"));
+                Debug.WriteLine("usbGenericHidCommunication:writeReportToDevice(): -> EXCEPTION: When attempting to send an output report");
+                Debug.WriteLine(ex.ToString());
                 return false;
             }
         }
@@ -212,6 +185,9 @@ namespace INFRA.USB.Classes
                 return false;
             }
 
+            // resize array if nescecery
+            if (inputReportBuffer.Length != _hidDevice.MaxInputReportLength) { Array.Resize(ref inputReportBuffer, _hidDevice.MaxInputReportLength); }
+
             try
             {
                 lock (_usbReadFileStream)
@@ -221,7 +197,7 @@ namespace INFRA.USB.Classes
                 }
                 return true;
             }
-            catch (Exception ex)
+            catch (IOException ex)
             {
                 // An error - send out some debug and return failure
                 Debug.WriteLine(string.Format("usbGenericHidCommunication:readReportFromDevice(): -> EXCEPTION: When attempting to receive an input report"));
@@ -229,6 +205,9 @@ namespace INFRA.USB.Classes
                 return false;
             }
         }
+        #endregion
+
+        
 
 	    public bool ReadSingleReportFromDevice(ref byte[] inputReportBuffer)
         {
@@ -379,7 +358,7 @@ namespace INFRA.USB.Classes
                     Monitor.Pulse(_usbReadFileStream);
                 }
 
-                OnDataReceived(new InputReport {Buffer = arrBuff});
+                //OnDataReceived(new InputReport {Buffer = arrBuff});
 
                 // when all that is done, kick off another read for the next report
                 BeginAsyncRead();
@@ -396,7 +375,7 @@ namespace INFRA.USB.Classes
         /// <summary>
         /// virtual handler for any action to be taken when data is sent. Override to use.
         /// </summary>
-        protected virtual void OnDataSent(OutputReport report)
+        protected virtual void OnDataSent(HidOutputReport report)
         {
 
         }
@@ -405,7 +384,7 @@ namespace INFRA.USB.Classes
         /// virtual handler for any action to be taken when data is received. Override to use.
         /// </summary>
         /// <param name="report">The input report that was received</param>
-        protected virtual void OnDataReceived(InputReport report)
+        protected virtual void OnDataReceived(HidInputReport report)
         {
 
         }  

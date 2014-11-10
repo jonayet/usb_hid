@@ -149,20 +149,20 @@ namespace INFRA.USB
         #endregion
 
         #region Overriden Methods
-        protected void OnDataSent(OutputReport report)
+        protected void OnDataSent(HidOutputReport report)
         {
             if (DataSent == null) return;
             var reportData = new byte[_hidDevice.MaxOutputReportLength - 1];
-            Array.Copy(report.Buffer, 1, reportData, 0, reportData.Length);
-            DataSent(this, new DataSentEventArgs(reportData));
+            //Array.Copy(report.Buffer, 1, reportData, 0, reportData.Length);
+            //DataSent(this, new DataSentEventArgs(report));
         }
 
-        protected void OnDataReceived(InputReport report)
+        protected void OnDataReceived(HidInputReport report)
         {
             // Fire the event handler if assigned
             if (DataReceived == null) return;
             var reportData = new byte[_hidDevice.MaxOutputReportLength - 1];
-            Array.Copy(report.Buffer, 1, reportData, 0, reportData.Length);
+            //Array.Copy(report.Buffer, 1, reportData, 0, reportData.Length);
             DataReceived(this, new DataRecievedEventArgs(reportData));
         } 
         #endregion

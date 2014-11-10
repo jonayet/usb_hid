@@ -62,7 +62,7 @@ namespace UsbHidApp
             int i = data.Length;
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            usbPort1.HidCommunication.WriteRawReportToDevice(data);
+            usbPort1.HidCommunication.WriteRawReportToDevice(ref data);
             sw.Stop();
             MessageBox.Show(sw.Elapsed.TotalMilliseconds.ToString());
         }
