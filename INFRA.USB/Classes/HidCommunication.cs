@@ -18,12 +18,14 @@ namespace INFRA.USB.Classes
 		/// <summary>Filestream we can use to read/write from</summary>
         private FileStream _usbReadFileStream;
         private FileStream _usbWriteFileStream;
+	    private bool _forceSyncRead;
 	    #endregion
 
         #region constructor
         public HidCommunication(ref HidDevice hidDevice)
 	    {
             _hidDevice = hidDevice;
+            _forceSyncRead = false;
 	    }
         #endregion
 
@@ -219,6 +221,10 @@ namespace INFRA.USB.Classes
                 return false;
             }
 
+            // stop continuse read
+	        _forceSyncRead = true;
+            Monitor.Pulse(_usbReadFileStream);
+
             // The readRawReportFromDevice method will fill the passed readBuffer or return false
             return ReadRawReportFromDevice(ref inputReportBuffer);
         }
@@ -330,8 +336,11 @@ namespace INFRA.USB.Classes
                 // put the buff we used to receive the stuff as the async state then we can get at it when the read completes
                 lock (_usbReadFileStream)
                 {
-                    _usbReadFileStream.BeginRead(arrInputReport, 0, _hidDevice.MaxInputReportLength, ReadCompleted, arrInputReport);
-                    Monitor.Wait(_usbReadFileStream);
+                    if (!_forceSyncRead)
+                    {
+                        _usbReadFileStream.BeginRead(arrInputReport, 0, _hidDevice.MaxInputReportLength, ReadCompleted, arrInputReport);
+                        Monitor.Wait(_usbReadFileStream);
+                    }
                 }
             }
             catch (IOException ex)
@@ -358,10 +367,15 @@ namespace INFRA.USB.Classes
                     Monitor.Pulse(_usbReadFileStream);
                 }
 
-                //OnDataReceived(new InputReport {Buffer = arrBuff});
-
-                // when all that is done, kick off another read for the next report
-                BeginAsyncRead();
+                try
+                {
+                    //OnDataReceived(new InputReport {Buffer = arrBuff});
+                }
+                finally
+                {
+                    // when all that is done, kick off another read for the next report
+                    BeginAsyncRead();
+                }
             }
             catch (IOException ex)
             {
