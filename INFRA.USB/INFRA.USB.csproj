@@ -70,17 +70,13 @@
     <Compile Include="Classes\HidDevice.cs" />
     <Compile Include="Classes\HidDeviceDiscovery.cs" />
     <Compile Include="HidToSerial.cs" />
-    <Compile Include="HidReport.cs" />
-    <Compile Include="HidModule.cs" />
-    <Compile Include="DllWrappers\Kernel32.cs" />
-    <Compile Include="DllWrappers\SetupApi.cs" />
-    <Compile Include="RingBuffer.cs" />
-    <Compile Include="UsbPort.cs">
+    <Compile Include="Classes\HidReport.cs" />
+    <Compile Include="HidModule.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="UsbPort.Designer.cs">
-      <DependentUpon>UsbPort.cs</DependentUpon>
-    </Compile>
+    <Compile Include="DllWrappers\Kernel32.cs" />
+    <Compile Include="DllWrappers\SetupApi.cs" />
+    <Compile Include="Classes\RingBuffer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="DllWrappers\User32.cs" />
     <Compile Include="Classes\Structures.cs">

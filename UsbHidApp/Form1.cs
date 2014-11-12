@@ -14,23 +14,23 @@ namespace UsbHidApp
 {
     public partial class Form1 : Form
     {
-        private UsbPort usbPort1;
+        private HidModule usbPort1;
 
         public Form1()
         {
             InitializeComponent();
 
-            usbPort1 = new UsbPort(0x1FBD, 0x0003);
-            usbPort1.OnDeviceAttached += new EventHandler(usbPort1_OnDeviceAttached);
-            usbPort1.OnDeviceRemoved += new EventHandler(usbPort1_OnDeviceRemoved);
-            usbPort1.OnDataRecieved += new DataRecievedEventHandler(usbPort1_OnDataRecieved);
-            usbPort1.FindTargetDevice();
+            usbPort1 = new HidModule(0x1FBD, 0x0003);
+            //usbPort1.OnDeviceAttached += new EventHandler(usbPort1_OnDeviceAttached);
+            //usbPort1.OnDeviceRemoved += new EventHandler(usbPort1_OnDeviceRemoved);
+            //usbPort1.OnDataRecieved += new DataRecievedEventHandler(usbPort1_OnDataRecieved);
+            //usbPort1.FindTargetDevice();
         }
 
-        void usbPort1_OnDataRecieved(object sender, DataRecievedEventArgs e)
-        {
-            ThreadHelperClass.SetText(this, textBox1, e.Data[2].ToString());
-        }
+        //void usbPort1_OnDataRecieved(object sender, DataRecievedEventArgs e)
+        //{
+        //    //ThreadHelperClass.SetText(this, textBox1, e.Data[2].ToString());
+        //}
 
         protected override void OnHandleCreated(EventArgs e)
         {
@@ -62,7 +62,7 @@ namespace UsbHidApp
             int i = data.Length;
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            usbPort1.HidCommunication.WriteRawReportToDevice(ref data);
+            //usbPort1.HidCommunication.WriteRawReportToDevice(ref data);
             sw.Stop();
             MessageBox.Show(sw.Elapsed.TotalMilliseconds.ToString());
         }
