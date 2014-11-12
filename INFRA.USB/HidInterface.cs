@@ -2,19 +2,16 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Windows.Forms;
 using INFRA.USB.Classes;
-using INFRA.USB.DllWrappers;
 
 namespace INFRA.USB
 {
     /// <summary>
     /// This class provides an usb component. This can be placed ont to your form.
     /// </summary>
-    [ToolboxBitmap(typeof(HidModule), "UsbHidBmp.bmp")]
-    public class HidModule : Component
+    [ToolboxBitmap(typeof(HidInterface), "UsbHid.bmp")]
+    public class HidInterface : Component
     {
         #region Public Fields
         [Description("The vendor id from the USB device you want to use")]
@@ -22,8 +19,8 @@ namespace INFRA.USB
         [Category("Embedded Details")]
         public ushort VendorID
         {
-            get { return _vendorId; }
-            set { _vendorId = value; }
+            get { return _hidDevice.VendorID; }
+            set { _hidDevice.VendorID = value; }
         }
 
         [Description("The product id from the USB device you want to use")]
@@ -31,8 +28,8 @@ namespace INFRA.USB
         [Category("Embedded Details")]
         public ushort ProductID
         {
-            get { return _productId; }
-            set { _productId = value; }
+            get { return _hidDevice.ProductID; }
+            set { _hidDevice.ProductID = value; }
         }
 
         [Description("The device index from the USB device you want to use")]
@@ -40,8 +37,14 @@ namespace INFRA.USB
         [Category("Embedded Details")]
         public int DeviceIndex
         {
-            get { return _deviceIndex; }
-            set { _deviceIndex = value; }
+            get { return _hidDevice.Index; }
+            set { _hidDevice.Index = value; }
+        }
+
+        public static string NTString(char[] buffer)
+        {
+            int index = Array.IndexOf(buffer, '\0');
+            return new string(buffer, 0, index >= 0 ? index : buffer.Length);
         }
 
         /// <summary>Details Device Information</summary>
@@ -49,28 +52,13 @@ namespace INFRA.USB
         {
             get
             {
-                //var stringBuilder = new StringBuilder();
-                //var devInfo = new HidDevice()
-                //{
-                //    VendorID = _hidDevice.VendorID,
-                //    ProductID = _hidDevice.ProductID,
-                //    Index = _hidDevice.Index,
-                //    PathString = _hidDevice.PathString,
-                //    Manufacturer = Hid.HidD_GetManufacturerString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
-                //    ProductName = Hid.HidD_GetProductString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
-                //    SerialNumber = Hid.HidD_GetSerialNumberString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "",
-                //    MaxInputReportLength = _hidDevice.MaxInputReportLength,
-                //    MaxOutputReportLength = _hidDevice.MaxOutputReportLength,
-                //    ProductVersion = _productVersion.ToString(),
-                //};
-                //return devInfo;
                 return _hidDevice;
             }
         }
 
         public string DevicePath
         {
-            get { return _devicePath; }
+            get { return _hidDevice.PathString; }
         }
 
         public bool IsAttached
@@ -82,12 +70,12 @@ namespace INFRA.USB
 
         #region private fields
         private readonly HidDevice _hidDevice;
+        private readonly HidDeviceNotifier _hidNotifier;
         private readonly HidDeviceDiscovery _hidDeviceDiscovery;
-        private readonly HidCommunication HidCommunication;
+        private readonly HidCommunication _hidCommunication;
+        private readonly RingBuffer<HidInputReport> _inputReportBuffer;
         private int _productVersion;
-        private ushort _vendorId;
-        private ushort _productId;
-        private int _deviceIndex;
+        private int _bufferLength;
         private string _devicePath;
         #endregion
 
@@ -96,23 +84,21 @@ namespace INFRA.USB
         /// Initialize device with given path string.
         /// </summary>
         /// <param name="devicePath"></param>
-        public HidModule(string devicePath)
-        {
+        public HidInterface(string devicePath, int bufferLength = 10)
+        {            
             _hidDevice = new HidDevice {PathString = devicePath};
+            _hidCommunication = new HidCommunication(ref _hidDevice);
+            _hidCommunication.ReportSent += new ReportSentEventHandler(_hidCommunication_ReportSent);
+            _hidCommunication.ReportReceived += new ReportRecievedEventHandler(_hidCommunication_ReportReceived);
             _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
-            HidCommunication = new HidCommunication(ref _hidDevice);
+            //_inputReportBuffer = new RingBuffer<HidInputReport>(bufferLength);
+            _bufferLength = bufferLength;
 
             // start Hid device Notifier event
+            _hidNotifier = new HidDeviceNotifier(ref _hidDevice);
             HidDeviceNotifier.DeviceAttached += new EventHandler(devNotifier_DeviceAttached);
             HidDeviceNotifier.DeviceDetached += new EventHandler(devNotifier_DeviceDetached);
-            var devNotifier = new HidDeviceNotifier(ref _hidDevice);
-            devNotifier.Start();
-
-            if (_hidDeviceDiscovery.FindTargetDevice())
-            {
-                if (DeviceAttached != null) DeviceAttached(this, EventArgs.Empty);
-                HidCommunication.Open();
-            }
+            _hidNotifier.Start();
         }
 
         /// <summary>
@@ -121,17 +107,19 @@ namespace INFRA.USB
         /// <param name="vendorId">Vendor id for device (VID)</param>
         /// <param name="productId">Product id for device (PID)</param>
         /// <param name="index">Adress index if more than one device found.</param>
-        public HidModule(ushort vendorId, ushort productId, int index = 0)
+        public HidInterface(ushort vendorId, ushort productId, int index = 0 , int bufferLength = 10)
         {
             _hidDevice = new HidDevice {VendorID = vendorId, ProductID = productId, Index = index};
+            _hidCommunication = new HidCommunication(ref _hidDevice);
             _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
-            HidCommunication = new HidCommunication(ref _hidDevice);
+            //_inputReportBuffer = new RingBuffer<HidInputReport>(bufferLength);
+            _bufferLength = bufferLength;
             
             // start Hid device Notifier event
+            _hidNotifier = new HidDeviceNotifier(ref _hidDevice);
             HidDeviceNotifier.DeviceAttached += new EventHandler(devNotifier_DeviceAttached);
             HidDeviceNotifier.DeviceDetached += new EventHandler(devNotifier_DeviceDetached);
-            var devNotifier = new HidDeviceNotifier(ref _hidDevice);
-            devNotifier.Start();
+            _hidNotifier.Start();
         }
         #endregion
 
@@ -140,32 +128,33 @@ namespace INFRA.USB
         {
             if (_hidDeviceDiscovery.FindTargetDevice())
             {
-                if (DeviceAttached != null) DeviceAttached(this, EventArgs.Empty);
-                HidCommunication.Open();
+                if (OnDeviceAttached != null) OnDeviceAttached(this, EventArgs.Empty);
+                _hidCommunication.Open();
             }
         }
         #endregion
 
         #region Private helper methods
-        private bool GetAttributes()
-        {
-            var attributes = new Structures.HidDAttributes();
-            attributes.Size = Marshal.SizeOf(attributes);
-            if (!Hid.HidD_GetAttributes(_hidDevice.HidHandle, ref attributes)) { return false; }
-            _productVersion = attributes.VersionNumber;
-            return true;
-        }
-
         private void devNotifier_DeviceAttached(object sender, EventArgs e)
         {
-            if (DeviceAttached != null) DeviceAttached(this, EventArgs.Empty);
-            HidCommunication.Open();
+            if (OnDeviceAttached != null) OnDeviceAttached(this, e);
+            _hidCommunication.Open();
         }
 
         private void devNotifier_DeviceDetached(object sender, EventArgs e)
         {
-            HidCommunication.Close();
-            if (DeviceDetached != null) DeviceDetached(this, EventArgs.Empty);
+            _hidCommunication.Close();
+            if (OnDeviceRemoved != null) OnDeviceRemoved(this, e);
+        }
+
+        private void _hidCommunication_ReportSent(object sender, EventArgs e)
+        {
+            if (OnReportSent != null) OnReportSent(this, e);
+        }
+
+        private void _hidCommunication_ReportReceived(object sender, ReportRecievedEventArgs e)
+        {
+            if (OnReportReceived != null) OnReportReceived(this, e);
         }
         #endregion
 
@@ -173,27 +162,37 @@ namespace INFRA.USB
         /// <summary>
         /// Event handler called after Data sent complete.
         /// </summary>
-        internal event EventHandler DeviceAttached;
+        public event EventHandler OnDeviceAttached;
 
         /// <summary>
         /// Event handler called when new data received.
         /// </summary>
-        internal event EventHandler DeviceDetached;
+        public event EventHandler OnDeviceRemoved;
+
+        ///// <summary>
+        ///// Event handler called after Data sent complete.
+        ///// </summary>
+        //internal event EventHandler DataSent;
+
+        ///// <summary>
+        ///// Event handler called when new data received.
+        ///// </summary>
+        //internal event DataRecievedEventHandler DataReceived;
 
         /// <summary>
         /// Event handler called after Data sent complete.
         /// </summary>
-        internal event EventHandler DataSent;
+        public event EventHandler OnReportSent;
 
         /// <summary>
         /// Event handler called when new data received.
         /// </summary>
-        internal event DataRecievedEventHandler DataReceived;
+        public event ReportRecievedEventHandler OnReportReceived;
 
         /// <summary>
         /// Event handler called when new Serial received.
         /// </summary>
-        internal event SerialPacketRecievedEventHandler SerialPacketRecieved; 
+        public event SerialPacketRecievedEventHandler SerialPacketRecieved; 
         #endregion
 
         #region Overriden Methods

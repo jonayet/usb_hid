@@ -4,7 +4,7 @@ namespace INFRA.USB.Classes
 {
     public delegate void ReportSentEventHandler(object sender, EventArgs e);
     public delegate void ReportRecievedEventHandler(object sender, ReportRecievedEventArgs e);
-    public delegate void DataRecievedEventHandler(object sender, EventArgs e);
+    //public delegate void DataRecievedEventHandler(object sender, EventArgs e);
     public delegate void SerialPacketRecievedEventHandler(object sender, SerialPacketRecievedEventArgs e);
 
     public class ReportRecievedEventArgs : EventArgs

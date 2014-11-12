@@ -50,7 +50,7 @@ namespace INFRA.USB.Classes
         /// <summary>
         /// Product Version
         /// </summary>
-        public string ProductVersion { get; internal set; }
+        public int ProductVersion { get; internal set; }
 
         /// <summary>
         /// Manufacturer
@@ -95,7 +95,7 @@ namespace INFRA.USB.Classes
             MaxOutputReportLength = 0;
             ProductName = "";
             SerialNumber = "";
-            ProductVersion = "";
+            ProductVersion = 0;
             Manufacturer = "";
             IsAttached = false;
             HidHandle = null;

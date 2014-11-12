@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using INFRA.USB.DllWrappers;
 
@@ -24,7 +25,7 @@ namespace INFRA.USB.Classes
         private FileStream _usbWriteFileStream;
 	    #endregion
 
-        #region constructor
+        #region Constructor
         public HidCommunication(ref HidDevice hidDevice)
 	    {
             _hidDevice = hidDevice;
@@ -69,6 +70,7 @@ namespace INFRA.USB.Classes
                 // We could determine the 'type' of HID device here too, but since this class is only
                 // for generic HID communication we don't care...
                 GetCapabilities();
+                GetAdditionalDeviceInfo();
 
                 // Open the readHandle to the device
                 Debug.WriteLine(
@@ -106,7 +108,7 @@ namespace INFRA.USB.Classes
                 Debug.WriteLine(string.Format("usbGenericHidCommunication:HidCommunication() -> Opening successful!---------------------- :)"));
 
                 // start async reading
-                _usbWriteFileStream = new FileStream(_hidDevice.WriteHandle, FileAccess.Write, _hidDevice.MaxOutputReportLength, true);
+                _usbWriteFileStream = new FileStream(_hidDevice.WriteHandle, FileAccess.Write, _hidDevice.MaxOutputReportLength, false);
                 _usbReadFileStream = new FileStream(_hidDevice.ReadHandle, FileAccess.Read, _hidDevice.MaxInputReportLength, true);
                 BeginAsyncRead();
                 
@@ -137,6 +139,8 @@ namespace INFRA.USB.Classes
             try
             {
                 Debug.WriteLine(string.Format("usbGenericHidCommunication:HidCommunication() -> start closing handles..."));
+                Monitor.PulseAll(_usbWriteFileStream);
+                Monitor.PulseAll(_usbReadFileStream);
                 if (_usbReadFileStream != null) { _usbReadFileStream.Close(); }
                 if (!_hidDevice.ReadHandle.IsInvalid) { _hidDevice.ReadHandle.Close(); }
                 if (!_hidDevice.WriteHandle.IsInvalid) { _hidDevice.WriteHandle.Close(); }
@@ -282,6 +286,17 @@ namespace INFRA.USB.Classes
                     Hid.HidD_FreePreparsedData(preparsedData);
                 }
             }
+        }
+
+        private void GetAdditionalDeviceInfo()
+        {
+            var attributes = new Structures.HidAttributes();
+            var stringBuilder = new StringBuilder(256, 256);
+            attributes.Size = Marshal.SizeOf(attributes);
+            _hidDevice.ProductVersion = Hid.HidD_GetAttributes(_hidDevice.HidHandle, ref attributes) ? attributes.VersionNumber : 0;
+            _hidDevice.Manufacturer = Hid.HidD_GetManufacturerString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "";
+            _hidDevice.ProductName = Hid.HidD_GetProductString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "";
+            _hidDevice.SerialNumber = Hid.HidD_GetSerialNumberString(_hidDevice.HidHandle, stringBuilder, 256) ? stringBuilder.ToString() : "";
         }
         #endregion
 

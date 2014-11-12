@@ -71,7 +71,7 @@
     <Compile Include="Classes\HidDeviceDiscovery.cs" />
     <Compile Include="HidToSerial.cs" />
     <Compile Include="Classes\HidReport.cs" />
-    <Compile Include="HidModule.cs">
+    <Compile Include="HidInterface.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="DllWrappers\Kernel32.cs" />
@@ -88,7 +88,7 @@
     <EmbeddedResource Include="Classes\HidDeviceNotifier.resx">
       <DependentUpon>HidDeviceNotifier.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="UsbHidBmp.bmp" />
+    <EmbeddedResource Include="UsbHid.bmp" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include="Microsoft.Net.Client.3.5">

@@ -15,7 +15,7 @@ namespace INFRA.USB.DllWrappers
         public static extern bool HidD_FreePreparsedData(IntPtr preparsedData);
 
         [DllImport("hid.dll", SetLastError = true)]
-        public static extern bool HidD_GetAttributes(SafeFileHandle hidDeviceObject, ref Structures.HidDAttributes attributes);
+        public static extern bool HidD_GetAttributes(SafeFileHandle hidDeviceObject, ref Structures.HidAttributes attributes);
 
         [DllImport("hid.dll", SetLastError = true)]
         public static extern bool HidD_GetFeature(SafeFileHandle hidDeviceObject, byte[] lpReportBuffer, Int32 reportBufferLength);
@@ -45,16 +45,16 @@ namespace INFRA.USB.DllWrappers
         public static extern Int32 HidP_GetCaps(IntPtr preparsedData, out Structures.HidCaps capabilities);
 
         [DllImport("hid.dll", SetLastError = true)]
-        public static extern int HidP_GetValueCaps(Int32 reportType, byte[] valueCaps, ref Int32 valueCapsLength, IntPtr preparsedData);
+        public static extern Int32 HidP_GetValueCaps(Int32 reportType, byte[] valueCaps, ref Int32 valueCapsLength, IntPtr preparsedData);
 
         [DllImport("hid.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        internal static extern Boolean HidD_GetManufacturerString(SafeFileHandle hFile, StringBuilder buffer, Int32 bufferLength);
+        public static extern Boolean HidD_GetManufacturerString(SafeFileHandle hFile, StringBuilder buffer, Int32 bufferLength);
 
         [DllImport("hid.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        internal static extern Boolean HidD_GetProductString(SafeFileHandle hFile, StringBuilder buffer, Int32 bufferLength);
+        public static extern Boolean HidD_GetProductString(SafeFileHandle hFile, StringBuilder buffer, Int32 bufferLength);
 
         [DllImport("hid.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        internal static extern bool HidD_GetSerialNumberString(SafeFileHandle hDevice, StringBuilder buffer, Int32 bufferLength);
+        public static extern Boolean HidD_GetSerialNumberString(SafeFileHandle hDevice, StringBuilder buffer, Int32 bufferLength);
 
         /// <summary>
         /// Helper to get the HID guid.

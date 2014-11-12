@@ -106,7 +106,7 @@ namespace INFRA.USB.Classes
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        public struct HidDAttributes
+        public struct HidAttributes
         {
             public Int32 Size;
             public Int16 VendorID;
