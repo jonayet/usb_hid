@@ -166,7 +166,7 @@ namespace INFRA.USB.Classes
             {
                 lock (_usbWriteFileStream)
                 {
-                    _usbWriteFileStream.BeginWrite(report.ReportData, 0, report.ReportData.Length, RawReportWriteComplete, null);
+                    _usbWriteFileStream.BeginWrite(report.ReportData, 0, report.ReportData.Length, ReportWriteComplete, null);
                     Monitor.Wait(_usbWriteFileStream);
                 }
                 return true;
@@ -180,7 +180,7 @@ namespace INFRA.USB.Classes
             }
         }
 
-        public bool ReadRawReportFromDevice(ref HidInputReport report)
+        public bool ReadReport(ref HidInputReport report)
         {
             // Make sure a device is attached & opened
             if (!_hidDevice.IsAttached | !_hidDevice.IsOpen)
@@ -300,17 +300,7 @@ namespace INFRA.USB.Classes
             }
         }
 
-        private void RawReportReadComplete(IAsyncResult iResult)
-        {
-            lock (_usbReadFileStream)
-            {
-                //Debug.WriteLine(string.Format("usbGenericHidCommunication:readReportFromDevice(): -> Read Ok"));
-                _usbReadFileStream.EndRead(iResult);
-                Monitor.Pulse(_usbReadFileStream);
-            }
-        }
-
-        private void RawReportWriteComplete(IAsyncResult iResult)
+        private void ReportWriteComplete(IAsyncResult iResult)
         {
             lock (_usbWriteFileStream)
             {
