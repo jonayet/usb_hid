@@ -74,6 +74,7 @@
     <Compile Include="HidModule.cs" />
     <Compile Include="DllWrappers\Kernel32.cs" />
     <Compile Include="DllWrappers\SetupApi.cs" />
+    <Compile Include="RingBuffer.cs" />
     <Compile Include="UsbPort.cs">
       <SubType>Component</SubType>
     </Compile>

@@ -10,37 +10,48 @@ namespace INFRA.USB
         /// <summary>
         /// Get maximum length that can hold a single report
         /// </summary>
-        public static int MaxReportLength { get; internal set; }
+        public static int ReportDataLength { get; internal set; }
 
         /// <summary>
         /// Get maximum length of Data that can hold a single report
         /// </summary>
-        public static int MaxDataLength { get { return MaxReportLength - 1; } }
+        public static int UserDataLength { get { return ReportDataLength - 1; } }
+
+	    /// <summary>
+	    /// 
+	    /// </summary>
+        public byte[] ReportData
+	    {
+	        get
+	        {
+	            _reportData[0] = 0; // must be zero!
+                Array.Copy(_userData, 0, _reportData, 1, UserDataLength);
+	            return _reportData;
+	        }
+	    }
 
         /// <summary>
         /// 
         /// </summary>
-	    public byte[] ReportData { get; private set; }
-
-        /// <summary>
-        /// 
-        /// </summary>
-	    public byte[] Data
+	    public byte[] UserData
 	    {
 	        set
 	        {
-                if (value.Length != MaxDataLength) { Array.Resize(ref value, MaxDataLength); }
-                ReportData[0] = 0;  // must be zero
-                Array.Copy(value, 0, ReportData, 1, MaxDataLength);
+                if (value.Length != UserDataLength) { Array.Resize(ref value, UserDataLength); }
+	            _userData = value;
 	        }
+            get { return _userData; }
 	    }
+
+        private byte[] _userData;
+        private readonly byte[] _reportData;
 
 	    /// <summary>
 	    /// Construction. Setup the buffer with the correct output report length dictated by the device
 	    /// </summary>
         public HidOutputReport()
 	    {
-	        ReportData = new byte[MaxReportLength];
+            _reportData = new byte[ReportDataLength];
 	    }
 	}
 
@@ -53,36 +64,47 @@ namespace INFRA.USB
         /// <summary>
         /// Get maximum length that can hold a single report
         /// </summary>
-        internal static int MaxReportLength { get; set; }
+        public static int ReportDataLength { get; set; }
 
         /// <summary>
         /// Get maximum length of Data that can hold a single report
         /// </summary>
-        public static int MaxDataLength { get { return MaxReportLength - 1; } }
+        public static int UserDataLength { get { return ReportDataLength - 1; } }
 
         /// <summary>
         /// 
         /// </summary>
         public byte[] ReportData
 	    {
-	        set
+            set
+            {
+                if (value.Length != ReportDataLength) { Array.Resize(ref value, ReportDataLength); }
+                _reportData = value;
+            }
+            get { return _reportData; }
+	    }
+
+	    /// <summary>
+	    /// 
+	    /// </summary>
+	    public byte[] UserData
+	    {
+	        get
 	        {
-                if (value.Length != MaxReportLength) { Array.Resize(ref value, MaxReportLength); }
-                Array.Copy(value, 1, Data, 0, MaxReportLength - 1);
+                Array.Copy(_reportData, 1, _userData, 0, ReportDataLength);
+	            return _userData;
 	        }
 	    }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public byte[] Data { get; private set; }
+        private readonly byte[] _userData;
+        private byte[] _reportData;
 
 	    /// <summary>
 	    /// Construction. Setup the buffer with the correct output report length dictated by the device
 	    /// </summary>
         public HidInputReport()
 	    {
-            Data = new byte[MaxReportLength - 1];
+            _userData = new byte[UserDataLength];
 	    }
 	}
 }
