@@ -14,23 +14,20 @@ namespace INFRA.USB.Classes
     public class HidCommunication : IDisposable
     {
         #region Public Fields
-	    private const int InputReportBufferSize = 100;
-        private const int NumberOfInputReportsForEvent = 100;
+        public event ReportSentEventHandler ReportSent; 
+	    public event ReportRecievedEventHandler ReportReceived;
         #endregion
 
         #region private / internal Fields
 	    private readonly HidDevice _hidDevice;
         private FileStream _usbReadFileStream;
         private FileStream _usbWriteFileStream;
-	    private bool _forceSyncRead;
-        private RingBuffer<HidInputReport> _inputReports;
 	    #endregion
 
         #region constructor
         public HidCommunication(ref HidDevice hidDevice)
 	    {
             _hidDevice = hidDevice;
-            _inputReports = new RingBuffer<HidInputReport>(InputReportBufferSize);
 	    }
         #endregion
 
@@ -166,112 +163,99 @@ namespace INFRA.USB.Classes
             {
                 lock (_usbWriteFileStream)
                 {
+                    //Debug.WriteLine(string.Format("usbGenericHidCommunication:WriteReport(): -> start Writing"));
                     _usbWriteFileStream.BeginWrite(report.ReportData, 0, report.ReportData.Length, ReportWriteComplete, null);
-                    Monitor.Wait(_usbWriteFileStream);
+                    Monitor.Wait(_usbWriteFileStream, 1000);
                 }
                 return true;
             }
             catch (IOException ex)
             {
                 // An error - send out some debug and return failure
-                Debug.WriteLine("usbGenericHidCommunication:writeReportToDevice(): -> EXCEPTION: When attempting to send an output report");
-                Debug.WriteLine(ex.ToString());
-                return false;
-            }
-        }
-
-        public bool ReadReport(ref HidInputReport report)
-        {
-            // Make sure a device is attached & opened
-            if (!_hidDevice.IsAttached | !_hidDevice.IsOpen)
-            {
-                Debug.WriteLine(string.Format("usbGenericHidCommunication:writeReportToDevice(): -> No device attached or Target device is not Opened!"));
-                return false;
-            }
-            try
-            {
-                lock (_usbReadFileStream)
-                {
-                    _usbReadFileStream.BeginRead(report.ReportData, 0, _hidDevice.MaxInputReportLength, RawReportReadComplete, null);
-                    Monitor.Wait(_usbReadFileStream);
-                }
-                return true;
-            }
-            catch (IOException ex)
-            {
-                // An error - send out some debug and return failure
-                Debug.WriteLine(string.Format("usbGenericHidCommunication:readReportFromDevice(): -> EXCEPTION: When attempting to receive an input report"));
+                Debug.WriteLine("usbGenericHidCommunication:WriteReport(): -> EXCEPTION: When attempting to send an output report");
                 Debug.WriteLine(ex.ToString());
                 return false;
             }
         }
         #endregion
 
-	    public bool ReadSingleReportFromDevice(ref byte[] inputReportBuffer)
-        {
-            // The size of our inputReportBuffer must be at least the same size as the input report.
-            if (inputReportBuffer.Length != _hidDevice.MaxInputReportLength)
-            {
-                // inputReportBuffer is not the right length!
-                Debug.WriteLine(string.Format("usbGenericHidCommunication:readSingleReportFromDevice(): -> ERROR: The referenced inputReportBuffer size is incorrect for the input report size!"));
-                return false;
-            }
-
-            // stop continuse read
-	        _forceSyncRead = true;
-            Monitor.Pulse(_usbReadFileStream);
-
-            // The readRawReportFromDevice method will fill the passed readBuffer or return false
-            return ReadRawReportFromDevice(ref inputReportBuffer);
-        }
-
-        public bool ReadMultipleReportsFromDevice(ref byte[] inputReportBuffer, int numberOfReports)
-        {
-            // Define a temporary buffer for assembling partial data reads into the completed inputReportBuffer
-            var temporaryBuffer = new Byte[_hidDevice.MaxInputReportLength];
-            long pointerToBuffer = 0;
-            var success = false;
-
-            // Range check the number of reports
-            if (numberOfReports == 0)
-            {
-                Debug.WriteLine(string.Format("usbGenericHidCommunication:readMultipleReportsFromDevice(): -> ERROR: You cannot request 0 reports!"));
-                return false;
-            }
-
-            if (numberOfReports > 128)
-            {
-                Debug.WriteLine(string.Format("usbGenericHidCommunication:readMultipleReportsFromDevice(): -> ERROR: Reference application testing does not verify the code for more than 128 reports"));
-                return false;
-            }
-
-            // The size of our inputReportBuffer must be at least the same size as the input report multiplied by the number of reports requested.
-            if (inputReportBuffer.Length != (_hidDevice.MaxInputReportLength * numberOfReports))
-            {
-                // inputReportBuffer is not the right length!
-                Debug.WriteLine(string.Format("usbGenericHidCommunication:readMultipleReportsFromDevice(): -> ERROR: The referenced inputReportBuffer size is incorrect for the number of input reports requested!"));
-                return false;
-            }
-
-            //Debug.WriteLine(string.Format("usbGenericHidCommunication:readMultipleReportsFromDevice(): -> Reading from device..."));
-            // The readRawReportFromDevice method will fill the passed read buffer or return false
-            while (pointerToBuffer != (_hidDevice.MaxInputReportLength * numberOfReports))
-            {
-                //Debug.WriteLine(string.Format("usbGenericHidCommunication:readMultipleReportsFromDevice(): -> Reading from device..."));
-                success = ReadRawReportFromDevice(ref temporaryBuffer);
-
-                // Was the read successful?
-                if (!success) { return false; }
-
-                // Copy the received data into the referenced input buffer
-                Array.Copy(temporaryBuffer, 0, inputReportBuffer, pointerToBuffer, temporaryBuffer.Length);
-                pointerToBuffer += temporaryBuffer.Length;
-            }
-            //Debug.WriteLine(string.Format("usbGenericHidCommunication:readMultipleReportsFromDevice(): -> Reading complete..."));
-            return success;
-        }
-
         #region Private Methods
+        private void ReportWriteComplete(IAsyncResult iResult)
+        {
+            lock (_usbWriteFileStream)
+            {
+                _usbWriteFileStream.EndWrite(iResult);
+                Monitor.Pulse(_usbWriteFileStream);
+                //Debug.WriteLine(string.Format("usbGenericHidCommunication:ReportWriteComplete(): -> Write complete"));
+
+                if (ReportSent != null)
+                {
+                    ReportSent(this, EventArgs.Empty);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Kicks off an asynchronous read which completes when data is read or when the device
+        /// is disconnected. Uses a callback.
+        /// </summary>
+        private void BeginAsyncRead()
+        {
+            var arrInputReport = new byte[_hidDevice.MaxInputReportLength];
+            try
+            {
+                // put the buff we used to receive the stuff as the async state then we can get at it when the read completes
+                lock (_usbReadFileStream)
+                {
+                    _usbReadFileStream.BeginRead(arrInputReport, 0, _hidDevice.MaxInputReportLength, AsyncReadCompleted, arrInputReport);
+                    Monitor.Wait(_usbReadFileStream, 1000);
+                }
+            }
+            catch (IOException ex)
+            {
+                Debug.WriteLine("usbGenericHidCommunication:BeginAsyncRead(): -> EXCEPTION: When attempting to async read of an input report");
+                Debug.WriteLine(ex.ToString());
+                //throw new HidDeviceException("Device was removed.");
+            }
+        }
+
+        /// <summary>
+        /// Callback for above. Care with this as it will be called on the background thread from the async read
+        /// </summary>
+        /// <param name="iResult">Async result parameter</param>
+        private void AsyncReadCompleted(IAsyncResult iResult)
+        {
+            // retrieve the read buffer
+            var reportData = (byte[])iResult.AsyncState;
+            try
+            {
+                // call end read : this throws any exceptions that happened during the read
+                lock (_usbReadFileStream)
+                {
+                    _usbReadFileStream.EndRead(iResult);
+                    Monitor.Pulse(_usbReadFileStream);
+                }
+
+                try
+                {
+                    if (ReportReceived != null)
+                    {
+                        ReportReceived(this, new ReportRecievedEventArgs(new HidInputReport{ReportData = reportData}));
+                    }
+                }
+                finally
+                {
+                    // when all that is done, kick off another read for the next report
+                    BeginAsyncRead();
+                }
+            }
+            catch (IOException ex)
+            {
+                Debug.WriteLine(ex.ToString());
+                //throw new HIDDeviceException("Device was removed.");
+            }
+        }
+
         private bool GetCapabilities()
         {
             var preparsedData = new IntPtr();
@@ -299,95 +283,6 @@ namespace INFRA.USB.Classes
                 }
             }
         }
-
-        private void ReportWriteComplete(IAsyncResult iResult)
-        {
-            lock (_usbWriteFileStream)
-            {
-                //Debug.WriteLine(string.Format("usbGenericHidCommunication:readReportFromDevice(): -> Write complete"));
-                _usbWriteFileStream.EndWrite(iResult);
-                Monitor.Pulse(_usbWriteFileStream);
-            }
-        }
-
-        /// <summary>
-        /// Kicks off an asynchronous read which completes when data is read or when the device
-        /// is disconnected. Uses a callback.
-        /// </summary>
-        private void BeginAsyncRead()
-        {
-            var arrInputReport = new byte[_hidDevice.MaxInputReportLength];
-            try
-            {
-                // put the buff we used to receive the stuff as the async state then we can get at it when the read completes
-                lock (_usbReadFileStream)
-                {
-                    if (!_forceSyncRead)
-                    {
-                        _usbReadFileStream.BeginRead(arrInputReport, 0, _hidDevice.MaxInputReportLength, AsyncReadCompleted, arrInputReport);
-                        Monitor.Wait(_usbReadFileStream);
-                    }
-                }
-            }
-            catch (IOException ex)
-            {
-                Debug.WriteLine(ex.ToString());
-                //throw new HidDeviceException("Device was removed.");
-            }
-        }
-
-        /// <summary>
-        /// Callback for above. Care with this as it will be called on the background thread from the async read
-        /// </summary>
-        /// <param name="iResult">Async result parameter</param>
-        private void AsyncReadCompleted(IAsyncResult iResult)
-        {
-            // retrieve the read buffer
-            var reportData = (byte[])iResult.AsyncState;
-            try
-            {
-                // call end read : this throws any exceptions that happened during the read
-                lock (_usbReadFileStream)
-                {
-                    _usbReadFileStream.EndRead(iResult);
-                    _inputReports.PutOverwriting(new HidInputReport {ReportData = reportData});
-                }
-
-                try
-                {
-                    //OnDataReceived(new InputReport {Buffer = arrBuff});
-                }
-                finally
-                {
-                    // when all that is done, kick off another read for the next report
-                    BeginAsyncRead();
-                }
-            }
-            catch (IOException ex)
-            {
-                Debug.WriteLine(ex.ToString());
-                //throw new HIDDeviceException("Device was removed.");
-            }
-        }
-        #endregion
-
-        #region Protected Virtual Methods
-        /// <summary>
-        /// virtual handler for any action to be taken when data is sent. Override to use.
-        /// </summary>
-        protected virtual void OnDataSent(HidOutputReport report)
-        {
-
-        }
-
-        /// <summary>
-        /// virtual handler for any action to be taken when data is received. Override to use.
-        /// </summary>
-        /// <param name="report">The input report that was received</param>
-        protected virtual void OnDataReceived(HidInputReport report)
-        {
-
-        }  
         #endregion
 
         #region IDisposable Members
@@ -409,16 +304,8 @@ namespace INFRA.USB.Classes
             {
                 if (bDisposing)	// if we are disposing, need to close the managed resources
                 {
-                    if (_usbReadFileStream != null)
-                    {
-                        _usbReadFileStream.Close();
-                        _usbReadFileStream = null;
-                    }
-                    _hidDevice.ReadHandle.Close();
-                    _hidDevice.WriteHandle.Close();
-                    _hidDevice.HidHandle.Close();
+                    Close();
                 }
-                
             }
             catch (Exception ex)
             {
@@ -426,7 +313,7 @@ namespace INFRA.USB.Classes
             }
         }
         #endregion
-    }
+    }   
 
     #region Custom exception
     /// <summary>
