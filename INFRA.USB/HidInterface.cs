@@ -70,11 +70,8 @@ namespace INFRA.USB
 
         #region private fields
         private readonly HidDevice _hidDevice;
-        private readonly HidDeviceNotifier _hidNotifier;
         private readonly HidDeviceDiscovery _hidDeviceDiscovery;
         private readonly HidCommunication _hidCommunication;
-        private int _productVersion;
-        private string _devicePath;
         #endregion
 
         #region Constructors
@@ -82,7 +79,7 @@ namespace INFRA.USB
         /// Initialize device with given path string.
         /// </summary>
         /// <param name="devicePath"></param>
-        public HidInterface(string devicePath, int bufferLength = 10)
+        public HidInterface(string devicePath)
         {            
             _hidDevice = new HidDevice {PathString = devicePath};
             _hidCommunication = new HidCommunication(ref _hidDevice);
@@ -90,10 +87,10 @@ namespace INFRA.USB
             _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
 
             // start Hid device Notifier event
-            _hidNotifier = new HidDeviceNotifier(ref _hidDevice);
+            var hidNotifier = new HidDeviceNotifier(ref _hidDevice);
             HidDeviceNotifier.DeviceAttached += new EventHandler(devNotifier_DeviceAttached);
             HidDeviceNotifier.DeviceDetached += new EventHandler(devNotifier_DeviceDetached);
-            _hidNotifier.Start();
+            hidNotifier.Start();
         }
 
         /// <summary>
@@ -102,7 +99,7 @@ namespace INFRA.USB
         /// <param name="vendorId">Vendor id for device (VID)</param>
         /// <param name="productId">Product id for device (PID)</param>
         /// <param name="index">Adress index if more than one device found.</param>
-        public HidInterface(ushort vendorId, ushort productId, int index = 0 , int bufferLength = 10)
+        public HidInterface(ushort vendorId, ushort productId, int index = 0)
         {
             _hidDevice = new HidDevice {VendorID = vendorId, ProductID = productId, Index = index};
             _hidCommunication = new HidCommunication(ref _hidDevice);
@@ -110,10 +107,10 @@ namespace INFRA.USB
             _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
             
             // start Hid device Notifier event
-            _hidNotifier = new HidDeviceNotifier(ref _hidDevice);
+            var hidNotifier = new HidDeviceNotifier(ref _hidDevice);
             HidDeviceNotifier.DeviceAttached += new EventHandler(devNotifier_DeviceAttached);
             HidDeviceNotifier.DeviceDetached += new EventHandler(devNotifier_DeviceDetached);
-            _hidNotifier.Start();
+            hidNotifier.Start();
         }
         #endregion
 
@@ -168,21 +165,6 @@ namespace INFRA.USB
         /// </summary>
         public event EventHandler OnDeviceRemoved;
 
-        ///// <summary>
-        ///// Event handler called after Data sent complete.
-        ///// </summary>
-        //internal event EventHandler DataSent;
-
-        ///// <summary>
-        ///// Event handler called when new data received.
-        ///// </summary>
-        //internal event DataRecievedEventHandler DataReceived;
-
-        /// <summary>
-        /// Event handler called after Data sent complete.
-        /// </summary>
-        public event EventHandler OnReportSent;
-
         /// <summary>
         /// Event handler called when new data received.
         /// </summary>
@@ -191,7 +173,7 @@ namespace INFRA.USB
         /// <summary>
         /// Event handler called when new Serial received.
         /// </summary>
-        public event SerialPacketRecievedEventHandler SerialPacketRecieved; 
+        private event SerialPacketRecievedEventHandler SerialPacketRecieved; 
         #endregion
 
         #region Overriden Methods
