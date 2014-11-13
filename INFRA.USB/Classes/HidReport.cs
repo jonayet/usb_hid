@@ -91,7 +91,7 @@ namespace INFRA.USB
 	    {
 	        get
 	        {
-                Array.Copy(_reportData, 1, _userData, 0, ReportDataLength);
+                Array.Copy(_reportData, 1, _userData, 0, UserDataLength);
 	            return _userData;
 	        }
 	    }

@@ -14,22 +14,47 @@ namespace UsbHidApp
 {
     public partial class Form1 : Form
     {
-        private HidInterface usbPort1;
+        private HidInterface _hidInterface;
 
         public Form1()
         {
             InitializeComponent();
 
-            usbPort1 = new HidInterface(0x1FBD, 0x0003);
-            usbPort1.OnDeviceAttached += new EventHandler(usbPort1_OnDeviceAttached);
-            usbPort1.OnDeviceRemoved += new EventHandler(usbPort1_OnDeviceRemoved);
-            usbPort1.OnReportReceived += usbPort1_OnReportReceived;
-            usbPort1.ConnectTargetDevice();
+            _hidInterface = new HidInterface(0x1FBD, 0x0003);
+            _hidInterface.OnDeviceAttached += new EventHandler(usbPort1_OnDeviceAttached);
+            _hidInterface.OnDeviceRemoved += new EventHandler(usbPort1_OnDeviceRemoved);
+            _hidInterface.OnReportReceived += usbPort1_OnReportReceived;
+            _hidInterface.ConnectTargetDevice();
         }
 
+        Stopwatch sw = new Stopwatch();
+        private bool _isNew = false;
+        int i = 0;
+        private double sum = 0;
         void usbPort1_OnReportReceived(object sender, ReportRecievedEventArgs e)
         {
-            ThreadHelperClass.SetText(this, textBox1, e.Report.UserData[0].ToString());
+            if (_isNew)
+            {
+                sw.Stop();
+                i++;
+                sum += sw.Elapsed.TotalMilliseconds;
+                _isNew = false;
+            }
+            else
+            {
+                sw.Reset();
+                sw.Start();
+                _isNew = true;                
+            }
+
+            if (i > 100)
+            {
+                sum /= 100;
+                ThreadHelperClass.SetText(this, textBox1, e.Report.UserData[0].ToString());
+                ThreadHelperClass.SetText(this, label2, sum.ToString());
+                i = 0;
+                sum = 0;
+            }
         }
 
         void usbPort1_OnDeviceRemoved(object sender, EventArgs e)
@@ -44,11 +69,11 @@ namespace UsbHidApp
 
         private void button1_Click(object sender, EventArgs e)
         {
-            byte[] data = new byte[usbPort1.HidDevice.MaxInputReportLength * 20];
+            byte[] data = new byte[_hidInterface.HidDevice.MaxInputReportLength * 20];
             int i = data.Length;
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-            string vid = usbPort1.HidDevice.VendorID.ToString();
+            
+            
+            string vid = _hidInterface.HidDevice.VendorID.ToString();
             sw.Stop();
             MessageBox.Show(sw.Elapsed.TotalMilliseconds.ToString());
         }

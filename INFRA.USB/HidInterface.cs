@@ -110,6 +110,7 @@ namespace INFRA.USB
         {
             _hidDevice = new HidDevice {VendorID = vendorId, ProductID = productId, Index = index};
             _hidCommunication = new HidCommunication(ref _hidDevice);
+            _hidCommunication.ReportReceived += _hidCommunication_ReportReceived;
             _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
             //_inputReportBuffer = new RingBuffer<HidInputReport>(bufferLength);
             _bufferLength = bufferLength;
