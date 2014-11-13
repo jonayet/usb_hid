@@ -15,6 +15,7 @@ namespace UsbHidApp
     public partial class Form1 : Form
     {
         private HidInterface _hidInterface;
+        private const int CMD_SET_CALIBRATION = 0xA3;
 
         public Form1()
         {
@@ -49,9 +50,15 @@ namespace UsbHidApp
 
             if (i > 100)
             {
+                float voltageConstant = BitConverter.ToSingle(e.Report.UserData, 52);
+                int voltageOffset = BitConverter.ToInt16(e.Report.UserData, 56);
+                float currentConstant = BitConverter.ToSingle(e.Report.UserData, 58);
+                int currentOffset = BitConverter.ToInt16(e.Report.UserData, 62);
+
                 sum /= 100;
                 ThreadHelperClass.SetText(this, textBox1, e.Report.UserData[0].ToString());
                 ThreadHelperClass.SetText(this, label2, sum.ToString());
+                ThreadHelperClass.SetText(this, label3, "V.C: " + voltageConstant + ", V.F:" + voltageOffset + "; C.C: " + currentConstant + ", C.O: " + currentOffset);
                 i = 0;
                 sum = 0;
             }
@@ -69,13 +76,23 @@ namespace UsbHidApp
 
         private void button1_Click(object sender, EventArgs e)
         {
-            byte[] data = new byte[_hidInterface.HidDevice.MaxInputReportLength * 20];
-            int i = data.Length;
-            
-            
-            string vid = _hidInterface.HidDevice.VendorID.ToString();
-            sw.Stop();
-            MessageBox.Show(sw.Elapsed.TotalMilliseconds.ToString());
+            byte[] data = new byte[HidOutputReport.UserDataLength];
+
+            data[0] = CMD_SET_CALIBRATION;
+
+            // set voltage constatnt
+            Array.Copy(BitConverter.GetBytes((float) 0.123f), 0, data, 1, 4);
+
+            // set voltage offset
+            Array.Copy(BitConverter.GetBytes((ushort) 123), 0, data, 5, 2);
+
+            // set current constatnt
+            Array.Copy(BitConverter.GetBytes((float)0.456f), 0, data, 7, 4);
+
+            // set voltage offset
+            Array.Copy(BitConverter.GetBytes((ushort)456), 0, data, 11, 2);
+
+            _hidInterface.Write(data);
         }
     }
 }

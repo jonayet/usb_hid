@@ -179,6 +179,7 @@ namespace INFRA.USB.Classes
                     Monitor.Wait(_usbReadFileStream, 1000);
                 }
             }
+            catch (ObjectDisposedException ex) { Debug.WriteLine("HidCommunication:BeginAsyncRead(): -> " + ex.ToString()); }
             catch (ThreadInterruptedException ex) { Debug.WriteLine("HidCommunication:BeginAsyncRead(): -> " + ex.ToString()); }
             catch (SynchronizationLockException ex) { Debug.WriteLine("HidCommunication:BeginAsyncRead(): -> " + ex.ToString()); }
             catch (ArgumentException ex) { Debug.WriteLine("HidCommunication:BeginAsyncRead(): -> " + ex.ToString()); }
