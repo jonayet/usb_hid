@@ -23,27 +23,13 @@ namespace UsbHidApp
             usbPort1 = new HidInterface(0x1FBD, 0x0003);
             usbPort1.OnDeviceAttached += new EventHandler(usbPort1_OnDeviceAttached);
             usbPort1.OnDeviceRemoved += new EventHandler(usbPort1_OnDeviceRemoved);
-            //usbPort1.OnDataRecieved += new DataRecievedEventHandler(usbPort1_OnDataRecieved);
-            usbPort1.FindTargetDevice();
+            usbPort1.OnReportReceived += usbPort1_OnReportReceived;
+            usbPort1.ConnectTargetDevice();
         }
 
-        //void usbPort1_OnDataRecieved(object sender, DataRecievedEventArgs e)
-        //{
-        //    //ThreadHelperClass.SetText(this, textBox1, e.Data[2].ToString());
-        //}
-
-        protected override void OnHandleCreated(EventArgs e)
+        void usbPort1_OnReportReceived(object sender, ReportRecievedEventArgs e)
         {
-            //usbPort1.RegisterHandle(Handle);
-            //n.RegisterForDeviceNotifications(Handle);
-            base.OnHandleCreated(e);
-        }
-
-        protected override void WndProc(ref Message m)
-        {
-            //usbPort1.ParseMessages(ref m);
-            //n.HandleDeviceNotificationMessages(m);
-            base.WndProc(ref m);
+            ThreadHelperClass.SetText(this, textBox1, e.Report.UserData[0].ToString());
         }
 
         void usbPort1_OnDeviceRemoved(object sender, EventArgs e)

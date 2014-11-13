@@ -15,7 +15,6 @@ namespace INFRA.USB.Classes
     public class HidCommunication : IDisposable
     {
         #region Public Fields
-        public event ReportSentEventHandler ReportSent; 
 	    public event ReportRecievedEventHandler ReportReceived;
         #endregion
 
@@ -63,6 +62,7 @@ namespace INFRA.USB.Classes
                         "usbGenericHidCommunication:HidCommunication() -> Unable to open a HidHandle to the device!");
                 }
 
+
                 // Query the HID device's capabilities (primarily we are only really interested in the 
                 // input and output report byte lengths as this allows us to validate information sent
                 // to and from the device does not exceed the devices capabilities.
@@ -73,8 +73,7 @@ namespace INFRA.USB.Classes
                 GetAdditionalDeviceInfo();
 
                 // Open the readHandle to the device
-                Debug.WriteLine(
-                    string.Format("usbGenericHidCommunication:HidCommunication() -> Opening a readHandle to the device"));
+                Debug.WriteLine(string.Format("usbGenericHidCommunication:HidCommunication() -> Opening a readHandle to the device"));
                 _hidDevice.ReadHandle = Kernel32.CreateFile(
                     _hidDevice.PathString,
                     Constants.GENERIC_READ,
@@ -139,7 +138,6 @@ namespace INFRA.USB.Classes
             try
             {
                 Debug.WriteLine(string.Format("usbGenericHidCommunication:HidCommunication() -> start closing handles..."));
-                Monitor.PulseAll(_usbWriteFileStream);
                 Monitor.PulseAll(_usbReadFileStream);
                 if (_usbReadFileStream != null) { _usbReadFileStream.Close(); }
                 if (!_hidDevice.ReadHandle.IsInvalid) { _hidDevice.ReadHandle.Close(); }
@@ -167,9 +165,8 @@ namespace INFRA.USB.Classes
             {
                 lock (_usbWriteFileStream)
                 {
-                    //Debug.WriteLine(string.Format("usbGenericHidCommunication:WriteReport(): -> start Writing"));
-                    _usbWriteFileStream.BeginWrite(report.ReportData, 0, report.ReportData.Length, ReportWriteComplete, null);
-                    Monitor.Wait(_usbWriteFileStream, 1000);
+                    Debug.WriteLine(string.Format("usbGenericHidCommunication:WriteReport(): -> start Writing"));
+                    _usbWriteFileStream.Write(report.ReportData, 0, report.ReportData.Length);
                 }
                 return true;
             }
@@ -184,21 +181,6 @@ namespace INFRA.USB.Classes
         #endregion
 
         #region Private Methods
-        private void ReportWriteComplete(IAsyncResult iResult)
-        {
-            lock (_usbWriteFileStream)
-            {
-                _usbWriteFileStream.EndWrite(iResult);
-                Monitor.Pulse(_usbWriteFileStream);
-                //Debug.WriteLine(string.Format("usbGenericHidCommunication:ReportWriteComplete(): -> Write complete"));
-
-                if (ReportSent != null)
-                {
-                    ReportSent(this, EventArgs.Empty);
-                }
-            }
-        }
-
         /// <summary>
         /// Kicks off an asynchronous read which completes when data is read or when the device
         /// is disconnected. Uses a callback.

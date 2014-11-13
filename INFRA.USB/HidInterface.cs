@@ -88,8 +88,7 @@ namespace INFRA.USB
         {            
             _hidDevice = new HidDevice {PathString = devicePath};
             _hidCommunication = new HidCommunication(ref _hidDevice);
-            _hidCommunication.ReportSent += new ReportSentEventHandler(_hidCommunication_ReportSent);
-            _hidCommunication.ReportReceived += new ReportRecievedEventHandler(_hidCommunication_ReportReceived);
+            _hidCommunication.ReportReceived += _hidCommunication_ReportReceived;
             _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
             //_inputReportBuffer = new RingBuffer<HidInputReport>(bufferLength);
             _bufferLength = bufferLength;
@@ -124,13 +123,23 @@ namespace INFRA.USB
         #endregion
 
         #region Public Methods
-        public void FindTargetDevice()
+        public void ConnectTargetDevice()
         {
             if (_hidDeviceDiscovery.FindTargetDevice())
             {
                 if (OnDeviceAttached != null) OnDeviceAttached(this, EventArgs.Empty);
                 _hidCommunication.Open();
             }
+        }
+
+        public bool Write(HidOutputReport report)
+        {
+            return _hidCommunication.WriteReport(report);
+        }
+
+        public bool Write(byte[] data)
+        {
+            return Write(new HidOutputReport {UserData = data});
         }
         #endregion
 
@@ -145,11 +154,6 @@ namespace INFRA.USB
         {
             _hidCommunication.Close();
             if (OnDeviceRemoved != null) OnDeviceRemoved(this, e);
-        }
-
-        private void _hidCommunication_ReportSent(object sender, EventArgs e)
-        {
-            if (OnReportSent != null) OnReportSent(this, e);
         }
 
         private void _hidCommunication_ReportReceived(object sender, ReportRecievedEventArgs e)
