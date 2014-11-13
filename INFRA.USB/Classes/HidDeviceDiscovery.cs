@@ -7,7 +7,7 @@ using INFRA.USB.DllWrappers;
 
 namespace INFRA.USB.Classes
 {
-    public class HidDeviceDiscovery
+    internal class HidDeviceDiscovery
     {
         private readonly HidDevice _hidDevice;
 

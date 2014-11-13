@@ -10,7 +10,7 @@ namespace INFRA.USB
     /// <summary>
     /// This class provides an usb component. This can be placed ont to your form.
     /// </summary>
-    [ToolboxBitmap(typeof(HidInterface), "UsbHid.bmp")]
+    [ToolboxBitmap(typeof(HidInterface), "UsbInterface.bmp")]
     public class HidInterface : Component
     {
         #region Public Fields
@@ -73,9 +73,7 @@ namespace INFRA.USB
         private readonly HidDeviceNotifier _hidNotifier;
         private readonly HidDeviceDiscovery _hidDeviceDiscovery;
         private readonly HidCommunication _hidCommunication;
-        private readonly RingBuffer<HidInputReport> _inputReportBuffer;
         private int _productVersion;
-        private int _bufferLength;
         private string _devicePath;
         #endregion
 
@@ -90,8 +88,6 @@ namespace INFRA.USB
             _hidCommunication = new HidCommunication(ref _hidDevice);
             _hidCommunication.ReportReceived += _hidCommunication_ReportReceived;
             _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
-            //_inputReportBuffer = new RingBuffer<HidInputReport>(bufferLength);
-            _bufferLength = bufferLength;
 
             // start Hid device Notifier event
             _hidNotifier = new HidDeviceNotifier(ref _hidDevice);
@@ -112,8 +108,6 @@ namespace INFRA.USB
             _hidCommunication = new HidCommunication(ref _hidDevice);
             _hidCommunication.ReportReceived += _hidCommunication_ReportReceived;
             _hidDeviceDiscovery = new HidDeviceDiscovery(ref _hidDevice);
-            //_inputReportBuffer = new RingBuffer<HidInputReport>(bufferLength);
-            _bufferLength = bufferLength;
             
             // start Hid device Notifier event
             _hidNotifier = new HidDeviceNotifier(ref _hidDevice);

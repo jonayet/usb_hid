@@ -7,7 +7,7 @@ using INFRA.USB.DllWrappers;
 
 namespace INFRA.USB.Classes
 {
-    public class HidDeviceNotifier : Form
+    internal class HidDeviceNotifier : Form
     {
         #region event handlers
         public static event EventHandler DeviceAttached;

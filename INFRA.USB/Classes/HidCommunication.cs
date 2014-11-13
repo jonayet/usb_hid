@@ -12,7 +12,7 @@ namespace INFRA.USB.Classes
 	/// <summary>
 	/// Abstract HID device : Derive your new device controller class from this
 	/// </summary>
-    public class HidCommunication : IDisposable
+    internal class HidCommunication : IDisposable
     {
         #region Public Fields
 	    public event ReportRecievedEventHandler ReportReceived;
