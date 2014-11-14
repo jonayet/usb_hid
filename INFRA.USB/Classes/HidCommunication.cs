@@ -197,6 +197,12 @@ namespace INFRA.USB.Classes
                 {
                     _usbReadFileStream.EndRead(iResult);
                     Monitor.Pulse(_usbReadFileStream);
+
+                    // fire the ReportReceived event
+                    if (ReportReceived != null)
+                    {
+                        ReportReceived(this, new ReportRecievedEventArgs(new HidInputReport { ReportData = reportData }));
+                    }
                 }
             }
             catch (ThreadInterruptedException ex) { Debug.WriteLine("HidCommunication:AsyncReadCompleted(): -> " + ex.ToString()); }
@@ -206,12 +212,6 @@ namespace INFRA.USB.Classes
             catch (IOException ex) { Debug.WriteLine("HidCommunication:AsyncReadCompleted(): -> " + ex.ToString()); }
             finally
             {
-                // fire the ReportReceived event
-                if (ReportReceived != null)
-                {
-                    ReportReceived(this, new ReportRecievedEventArgs(new HidInputReport { ReportData = reportData }));
-                }
-
                 // when all that is done, kick off another read for the next report
                 BeginAsyncRead();
             }

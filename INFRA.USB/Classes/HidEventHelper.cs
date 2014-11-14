@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Windows.Forms;
 
 namespace INFRA.USB.Classes
 {
@@ -26,4 +27,6 @@ namespace INFRA.USB.Classes
             DeviceTransmisionType = transmisionType;
         }
     }
+
+    
 }

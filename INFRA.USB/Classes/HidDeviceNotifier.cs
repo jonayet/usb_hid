@@ -56,7 +56,7 @@ namespace INFRA.USB.Classes
         /// </summary>
         private void RegisterForDeviceNotifications(IntPtr windowHandle)
         {
-            Debug.WriteLine(string.Format("usbGenericHidCommunication:registerForDeviceNotifications() -> Method called"));
+            Debug.WriteLine(string.Format("HidDeviceNotifier:RegisterForDeviceNotifications()"));
             User32.RegisterForUsbEvents(windowHandle, Hid.HIDGuid);
         }
 
@@ -66,11 +66,11 @@ namespace INFRA.USB.Classes
         /// <param name="m"></param>
         private void HandleDeviceNotificationMessages(Message m)
         {
-            Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> Method called"));
+            Debug.WriteLine(string.Format("HidDeviceNotifier:handleDeviceNotificationMessages() -> Method called"));
 
             // Make sure this is a device notification
             if (m.Msg != Constants.WM_DEVICECHANGE) { return; }
-            Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> Device notification received"));
+            Debug.WriteLine(string.Format("HidDeviceNotifier:handleDeviceNotificationMessages() -> Device notification received"));
 
             try
             {
@@ -78,40 +78,38 @@ namespace INFRA.USB.Classes
                 {
                     // Device attached
                     case Constants.DEVICE_ARRIVAL:
-                        Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> A new device attached"));
+                        Debug.WriteLine(string.Format("HidDeviceNotifier:handleDeviceNotificationMessages() -> A new device attached"));
 
                         // Was this our target device?  
                         if (IsNotificationForTargetDevice(m) && !_hidDevice.IsAttached)
                         {
                             _hidDevice.IsAttached = true;
                             // If so attach the USB device.
-                            Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> The target USB device has been attached -------- :)"));
+                            Debug.WriteLine(string.Format("HidDeviceNotifier:handleDeviceNotificationMessages() -> The target USB device has been attached -------- :)"));
                             ReportDeviceAttached(m);
                         }
                         break;
 
                     // Device removed
                     case Constants.DEVICE_REMOVECOMPLETE:
-                        Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> A device has been removed"));
+                        Debug.WriteLine(string.Format("HidDeviceNotifier:handleDeviceNotificationMessages() -> A device has been removed"));
 
                         // Was this our target device?  
                         if (IsNotificationForTargetDevice(m) && _hidDevice.IsAttached)
                         {
                             _hidDevice.IsAttached = false;
                             // If so detach the USB device.
-                            Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> The target USB device has been removed ----------- :("));
+                            Debug.WriteLine(string.Format("HidDeviceNotifier:handleDeviceNotificationMessages() -> The target USB device has been removed ----------- :("));
                             ReportDeviceDetached(m);
                         }
                         break;
                 }
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
             {
-                Debug.WriteLine(string.Format("usbGenericHidCommunication:handleDeviceNotificationMessages() -> EXCEPTION: An unknown exception has occured!"));
-                Debug.WriteLine(ex.Message);
-                throw ex;
+                Debug.WriteLine("HidDeviceNotifier:handleDeviceNotificationMessages() -> " + ex.ToString());
             }
-        } 
+        }
         
         private bool IsNotificationForTargetDevice(Message m)
         {
@@ -152,7 +150,7 @@ namespace INFRA.USB.Classes
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(string.Format("usbGenericHidCommunication:isNotificationForTargetDevice() -> EXCEPTION: An unknown exception has occured!"));
+                Debug.WriteLine(string.Format("HidDeviceNotifier:isNotificationForTargetDevice() -> EXCEPTION: An unknown exception has occured!"));
                 Debug.WriteLine(ex.Message);
             }
             return false;
