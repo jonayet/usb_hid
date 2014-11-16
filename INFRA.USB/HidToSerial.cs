@@ -148,6 +148,7 @@ typedef enum
 } DeviceTransmisionType;
 */
 using System.Diagnostics;
+using INFRA.USB.Classes;
 
 namespace INFRA.USB
 {
@@ -177,11 +178,10 @@ namespace INFRA.USB
         UNKNOWN_FROM_DEVICE
     }
 
-    public class Seri
+    public class HidToserialCommunication
     {
         #region Packet Communication Methods
-        /*
-         /// <summary>
+        /// <summary>
         /// Contains last TransmisionType from Host
         /// </summary>
         public HostTransmisionType HostTransmisionType { get { return _hostTransmisionType; } }
@@ -221,7 +221,28 @@ namespace INFRA.USB
         private int _deviceAckByte = 0;
         private int _hostAckByte = 0;
         private bool _isPacketReceiving = false;
+        private HidDevice _hidDevice;
 
+        public HidToserialCommunication(HidDevice hidDevice)
+        {
+            _hidDevice = hidDevice;
+        }
+
+        private bool HasResponse()
+        {
+            switch (HostTransmisionType)
+            {
+                case HostTransmisionType.BAUDRATE_CMD_FROM_HOST: return true;
+                case HostTransmisionType.SINGLE_QUERY_FROM_HOST: return true;
+                case HostTransmisionType.SYNC_OUT_DATA_FROM_HOST: return true;
+                case HostTransmisionType.SYNC_IN_START_FROM_HOST: return true;
+                case HostTransmisionType.SYNC_IN_READ_FROM_HOST: return true;
+                case HostTransmisionType.ASYNC_IN_START_FROM_HOST: return true;
+                default: return false;
+            }
+        }
+
+        /*
         private void ProcessPacket(byte[] inputReport)
         {
             var transmisionType = (DeviceTransmisionType)inputReport[1];
@@ -277,20 +298,6 @@ namespace INFRA.USB
             _isPacketReceiving = HasResponse();
             if (!_isPacketReceiving)
                 System.Threading.Thread.Sleep(50);
-        }
-
-        private bool HasResponse()
-        {
-            switch (HostTransmisionType)
-            {
-                case HostTransmisionType.BAUDRATE_CMD_FROM_HOST: return true;
-                case HostTransmisionType.SINGLE_QUERY_FROM_HOST: return true;
-                case HostTransmisionType.SYNC_OUT_DATA_FROM_HOST: return true;
-                case HostTransmisionType.SYNC_IN_START_FROM_HOST: return true;
-                case HostTransmisionType.SYNC_IN_READ_FROM_HOST: return true;
-                case HostTransmisionType.ASYNC_IN_START_FROM_HOST: return true;
-                default: return false;
-            }
         }
 
         /// <summary>
@@ -483,26 +490,48 @@ namespace INFRA.USB
         #endregion
     }
 
-    public class BaudRateCommand_FromHost
+    #region Host Commands
+    public abstract class HostPacket
     {
-        private byte[] _rawBytes;           // 65 byte
+        protected const int SINGLE_QUERY_MAX_SIZE_OF_DATA = 59;
+        protected const int SINGLE_QUERY_MAX_SIZE_OF_RESPONSE = 62;
+        protected const int SYNC_OUT_MAX_SIZE_OF_DATA = 58;
+        protected const int SYNC_OUT_MAX_SIZE_OF_LAST_PACKET = 58;
+        protected const int SYNC_OUT_MAX_SIZE_OF_REMAINING_PACKET = 65535;
+        protected const int ASYNC_OUT_MAX_SIZE_OF_DATA = 62;
+        protected const int ASYNC_IN_START_MAX_SIZE_OF_DATA = 62;
+        protected const int MAX_SIZE_OF_ACK_BYTE = 255;
+        protected const int MAX_SIZE_OF_TIMEOUT = 65535;
 
-        public byte[] RawBytes
+        public HostTransmisionType TransmisionType { get; protected set; }
+
+        public byte[] RawData
         {
-            get
-            {
-                SetRawData();
-                return _rawBytes;
-            }
+            get { ProcessRawData(); return ReportToSend.UserData; }
         }
 
-        public HostTransmisionType HostTransmisionType
+        protected HidOutputReport ReportToSend;
+
+        public HostPacket()
         {
-            get
-            {
-                return HostTransmisionType.BAUDRATE_CMD_FROM_HOST;
-            }
+            ReportToSend = new HidOutputReport();
         }
+
+        protected virtual void ProcessRawData()
+        {
+
+        }
+
+        protected void Validate(int value, int max, string errMsg = "Invalid range.")
+        {
+            if (value < 0 || value > max)
+                throw new ArgumentOutOfRangeException(errMsg);
+        }
+    }
+
+    public class BaudRateCommand : HostPacket
+    {
+        private int _baudRate;
 
         /// <summary>
         /// index=1 > Baudrate : 1200; Index=2 > Baudrate : 2400; index=4 > Baudrate : 4800;
@@ -510,63 +539,98 @@ namespace INFRA.USB
         /// index=38 > Baudrate : 38400; index=56 > Baudrate : 56000; index=57 > Baudrate : 57600;
         /// Index=115 > Baudrate : 115200; index=128 > Baudrate : 128000;
         /// </summary>
-        public int BaudRateIndex { get; set; }
-
-        public BaudRateCommand_FromHost()
+        public int BaudRateIndex
         {
-            BaudRateIndex = 0;
-            _rawBytes = new byte[65];
+            set
+            {
+                if (value != 1 && value != 2 && value != 4 && value != 9 && value != 14 && value != 19 && value != 38 && value != 56 && value != 57 && value != 115 && value != 128)
+                {
+                    throw new ArgumentOutOfRangeException("value must be 1, 2, 3, 4, 9, 14, 19, 38, 56, 57, 115 or 128");
+                }
+                _baudRate = value;
+            }
+            get { return _baudRate; }
         }
 
-        private void SetRawData()
+        public BaudRateCommand()
         {
-            int index = 1;  // hid start index start from 1
-            _rawBytes[index++] = (byte)HostTransmisionType;
-            _rawBytes[index] = (byte)BaudRateIndex;
+            TransmisionType = HostTransmisionType.BAUDRATE_CMD_FROM_HOST;
+            _baudRate = 9;
+        }
+
+        protected override void ProcessRawData()
+        {
+            ReportToSend.UserData[0] = (byte)TransmisionType;
+            ReportToSend.UserData[1] = (byte)BaudRateIndex;
         }
     }
 
-    public class SingleQuery_FromHost
+    public class SingleQuery : HostPacket
     {
-        private byte[] _rawBytes;
-        public byte[] RawBytes
-        {
-            get
-            {
-                SetRawData();
-                return _rawBytes;
-            }
-        }
+        private int _thisSegmentDataLength;
+        private int _expectedDataLength;
+        private int _timeout;
 
-        public HostTransmisionType HostTransmisionType
+        public SingleQuery()
         {
-            get
-            {
-                return HostTransmisionType.SINGLE_QUERY_FROM_HOST;
-            }
+            TransmisionType = HostTransmisionType.SINGLE_QUERY_FROM_HOST;
+            _thisSegmentDataLength = 0;
+            _expectedDataLength = 0;
+            _timeout = 0;
+            Data = new byte[SINGLE_QUERY_MAX_SIZE_OF_DATA];
         }
 
         /// <summary>
         /// Max: 59
         /// </summary>
-        public int ThisSegmentDataLength { get; set; }
+        public int ThisSegmentDataLength
+        {
+            set
+            {
+                Validate(value, SINGLE_QUERY_MAX_SIZE_OF_DATA);
+                _thisSegmentDataLength = value;
+            }
+            get { return _thisSegmentDataLength; }
+        }
 
         /// <summary>
         /// Max: 62
         /// </summary>
-        public int ExpectedDataLength { get; set; }
+        public int ExpectedDataLength
+        {
+            set
+            {
+                Validate(value, SINGLE_QUERY_MAX_SIZE_OF_RESPONSE);
+                _expectedDataLength = value;
+            }
+            get { return _expectedDataLength; }
+        }
 
         /// <summary>
         /// Max: 65535
         /// </summary>
-        public int Timeout { get; set; }
-
-        public byte[] DataArray  { get; private set; }
-
-        public SingleQuery_FromHost()
+        public int Timeout
         {
-            _rawBytes = new byte[65];
-            DataArray = new byte[59];
+            set
+            {
+                Validate(value, MAX_SIZE_OF_TIMEOUT);
+                _timeout = value;
+            }
+            get { return _timeout; }
+        }
+
+        /// <summary>
+        /// Max Length: 59
+        /// </summary>
+        public byte[] Data
+        {
+            private set
+            {
+                Validate(value.Length, SINGLE_QUERY_MAX_SIZE_OF_DATA, "Array size is too large to fit.");
+                ReportToSend.UserData = value;
+                _thisSegmentDataLength = value.Length;
+            }
+            get { return ReportToSend.UserData; }
         }
 
         /// <summary>
@@ -577,73 +641,106 @@ namespace INFRA.USB
         /// <param name="length">Max: 59</param>
         public void SetData(byte[] source, int startIndex, int length)
         {
-            for (int i = 0; i < length; i++)
+            Validate(length, SINGLE_QUERY_MAX_SIZE_OF_DATA, "Data size is too large to fit.");
+            _thisSegmentDataLength = length;
+            for (var i = 0; i < length; i++)
             {
-                DataArray[i] = source[startIndex + i];
+                Data[i] = source[startIndex + i];
             }
         }
 
-        private void SetRawData()
+        protected override void ProcessRawData()
         {
-            int index = 1;  // hid start index start from 1
-            _rawBytes[index++] = (byte)HostTransmisionType;
-            _rawBytes[index++] = (byte)ThisSegmentDataLength;
-            _rawBytes[index++] = (byte)ExpectedDataLength;
-            _rawBytes[index++] = BitConverter.GetBytes(Timeout)[0];
-            _rawBytes[index++] = BitConverter.GetBytes(Timeout)[1];
-            for (int i = 0; i < DataArray.Length; i++)
+            ReportToSend.UserData[0] = (byte)TransmisionType;
+            ReportToSend.UserData[1] = (byte)ThisSegmentDataLength;
+            ReportToSend.UserData[2] = (byte)ExpectedDataLength;
+            ReportToSend.UserData[3] = BitConverter.GetBytes(Timeout)[0];
+            ReportToSend.UserData[4] = BitConverter.GetBytes(Timeout)[1];
+            for (int i = 0; i < _thisSegmentDataLength; i++)
             {
-                _rawBytes[index++] = DataArray[i];
+                ReportToSend.UserData[5 + i] = Data[i];
             }
         }
     }
 
-    public class SyncOutData_FromHost
+    public class SyncOutData : HostPacket
     {
-        private byte[] _rawBytes;
-        public byte[] RawBytes
-        {
-            get
-            {
-                SetRawData();
-                return _rawBytes;
-            }
-        }
-
-        public HostTransmisionType HostTransmisionType
-        {
-            get
-            {
-                return HostTransmisionType.SYNC_OUT_DATA_FROM_HOST;
-            }
-        }
+        private int _thisSegmentDataLength;
+        private int _noOfRemainingPackets;
+        private int _lastPacketLength;
+        private int _deviceAckByte;
 
         /// <summary>
         /// Max: 58
         /// </summary>
-        public int ThisSegmentDataLength { get; set; }
+        public int ThisSegmentDataLength
+        {
+            set
+            {
+                Validate(value, SYNC_OUT_MAX_SIZE_OF_DATA);
+                _thisSegmentDataLength = value;
+            }
+            get { return _thisSegmentDataLength; }
+        }
 
         /// <summary>
         /// Max: 65535
         /// </summary>
-        public int NoOfRemainingPackets { get; set; }
+        public int NoOfRemainingPackets
+        {
+            set
+            {
+                Validate(value, SYNC_OUT_MAX_SIZE_OF_REMAINING_PACKET);
+                _noOfRemainingPackets = value;
+            }
+            get { return _noOfRemainingPackets; }
+        }
 
         /// <summary>
         /// Max: 58
         /// </summary>
-        public int LastPacketLength { get; set; }
+        public int LastPacketLength
+        {
+            set
+            {
+                Validate(value, SYNC_OUT_MAX_SIZE_OF_LAST_PACKET);
+                _lastPacketLength = value;
+            }
+            get { return _lastPacketLength; }
+        }
 
         /// <summary>
         /// 8 bit
         /// </summary>
-        public int DeviceAckByte { get; set; }
-
-        public byte[] DataArray  { get; private set; }
-
-        public SyncOutData_FromHost()
+        public int DeviceAckByte
         {
-            _rawBytes = new byte[65];
-            DataArray = new byte[58];
+            set
+            {
+                Validate(value, MAX_SIZE_OF_ACK_BYTE);
+                _deviceAckByte = value;
+            }
+            get { return _deviceAckByte; }
+        }
+
+        public byte[] Data
+        {
+            private set
+            {
+                Validate(value.Length, SYNC_OUT_MAX_SIZE_OF_DATA, "Array size is too large to fit.");
+                ReportToSend.UserData = value;
+                _thisSegmentDataLength = value.Length;
+            }
+            get { return ReportToSend.UserData; }
+        }
+
+        public SyncOutData()
+        {
+            TransmisionType = HostTransmisionType.SYNC_OUT_DATA_FROM_HOST;
+            _thisSegmentDataLength = 0;
+            _lastPacketLength = 0;
+            _noOfRemainingPackets = 0;
+            _deviceAckByte = 0;
+            Data = new byte[SYNC_OUT_MAX_SIZE_OF_DATA];
         }
 
         /// <summary>
@@ -651,171 +748,135 @@ namespace INFRA.USB
         /// </summary>
         /// <param name="source"></param>
         /// <param name="startIndex"></param>
-        /// <param name="length">Max: 58</param>
+        /// <param name="length">Max: 59</param>
         public void SetData(byte[] source, int startIndex, int length)
         {
-            for (int i = 0; i < length; i++)
+            Validate(length, SYNC_OUT_MAX_SIZE_OF_DATA, "Data size is too large to fit.");
+            _thisSegmentDataLength = length;
+            for (var i = 0; i < length; i++)
             {
-                DataArray[i] = source[startIndex + i];
+                Data[i] = source[startIndex + i];
             }
         }
 
-        private void SetRawData()
+        protected override void ProcessRawData()
         {
-            int index = 1;  // hid start index start from 1
-            _rawBytes[index++] = (byte)HostTransmisionType;
-            _rawBytes[index++] = (byte)ThisSegmentDataLength;
-            _rawBytes[index++] = BitConverter.GetBytes(NoOfRemainingPackets)[0];
-            _rawBytes[index++] = BitConverter.GetBytes(NoOfRemainingPackets)[1];
-            _rawBytes[index++] = (byte)LastPacketLength;
-            _rawBytes[index++] = (byte)DeviceAckByte;
-            for (int i = 0; i < DataArray.Length; i++)
+            ReportToSend.UserData[0] = (byte)TransmisionType;
+            ReportToSend.UserData[1] = (byte)ThisSegmentDataLength;
+            ReportToSend.UserData[2] = BitConverter.GetBytes(NoOfRemainingPackets)[0];
+            ReportToSend.UserData[3] = BitConverter.GetBytes(NoOfRemainingPackets)[1];
+            ReportToSend.UserData[4] = (byte)LastPacketLength;
+            ReportToSend.UserData[5] = (byte)DeviceAckByte;
+            for (int i = 0; i < _thisSegmentDataLength; i++)
             {
-                _rawBytes[index++] = DataArray[i];
+                ReportToSend.UserData[6 + i] = Data[i];
             }
         }
     }
 
-    public class SyncInStart_FromHost
+    public class SyncInStart : HostPacket
     {
-        private byte[] _rawBytes;
-        public byte[] RawBytes
-        {
-            get
-            {
-                SetRawData();
-                return _rawBytes;
-            }
-        }
-
-        public HostTransmisionType HostTransmisionType
-        {
-            get
-            {
-                return HostTransmisionType.SYNC_IN_START_FROM_HOST;
-            }
-        }
+        private int _timeout;
 
         /// <summary>
         /// Max: 65535
         /// </summary>
-        public int Timeout { get; set; }
-
-        public SyncInStart_FromHost()
+        public int Timeout
         {
-            _rawBytes = new byte[65];
+            set
+            {
+                Validate(value, MAX_SIZE_OF_TIMEOUT);
+                _timeout = value;
+            }
+            get { return _timeout; }
         }
 
-        private void SetRawData()
+        public SyncInStart()
         {
-            int index = 1;  // hid start index start from 1
-            _rawBytes[index++] = (byte)HostTransmisionType;
-            _rawBytes[index++] = BitConverter.GetBytes(Timeout)[0];
-            _rawBytes[index] = BitConverter.GetBytes(Timeout)[1];
+            _timeout = 0;
+            TransmisionType = HostTransmisionType.SYNC_IN_START_FROM_HOST;
+        }
+
+        protected override void ProcessRawData()
+        {
+            ReportToSend.UserData[0] = (byte)TransmisionType;
+            ReportToSend.UserData[1] = BitConverter.GetBytes(Timeout)[0];
+            ReportToSend.UserData[2] = BitConverter.GetBytes(Timeout)[1];
         }
     }
 
-    public class SyncInRead_FromHost
+    public class SyncInRead : HostPacket
     {
-        private byte[] _rawBytes;
-        public byte[] RawBytes
+        public SyncInRead()
         {
-            get
-            {
-                SetRawData();
-                return _rawBytes;
-            }
+            TransmisionType = HostTransmisionType.SYNC_IN_READ_FROM_HOST;
         }
 
-        public HostTransmisionType HostTransmisionType
+        protected override void ProcessRawData()
         {
-            get
-            {
-                return HostTransmisionType.SYNC_IN_READ_FROM_HOST;
-            }
-        }
-
-        public SyncInRead_FromHost()
-        {
-            _rawBytes = new byte[65];
-        }
-
-        private void SetRawData()
-        {
-            int index = 1;  // hid start index start from 1
-            _rawBytes[index++] = (byte)HostTransmisionType;
+            ReportToSend.UserData[0] = (byte)TransmisionType;
         }
     }
 
-    public class SyncInAck_FromHost
+    public class SyncInAck : HostPacket
     {
-        private byte[] _rawBytes;
-        public byte[] RawBytes
-        {
-            get
-            {
-                SetRawData();
-                return _rawBytes;
-            }
-        }
-
-        public HostTransmisionType HostTransmisionType
-        {
-            get
-            {
-                return HostTransmisionType.SYNC_IN_ACK_FROM_HOST;
-            }
-        }
+        private int _hostAckByte;
 
         /// <summary>
         /// 8 bit
         /// </summary>
-        public int HostAckByte { get; set; }
-
-        public SyncInAck_FromHost()
+        public int HostAckByte
         {
-            _rawBytes = new byte[65];
+            set
+            {
+                Validate(value, MAX_SIZE_OF_ACK_BYTE);
+                _hostAckByte = value;
+            }
+            get { return _hostAckByte; }
         }
 
-        private void SetRawData()
+        public SyncInAck()
         {
-            int index = 1;  // hid start index start from 1
-            _rawBytes[index++] = (byte)HostTransmisionType;
-            _rawBytes[index] = (byte)HostAckByte;
+            TransmisionType = HostTransmisionType.SYNC_IN_ACK_FROM_HOST;
+        }
+
+        protected override void ProcessRawData()
+        {
+            ReportToSend.UserData[0] = (byte)TransmisionType;
+            ReportToSend.UserData[1] = (byte)HostAckByte;
         }
     }
 
-    public class AsyncOut_FromHost
+    public class AsyncOut : HostPacket
     {
-        private byte[] _rawBytes;
-        public byte[] RawBytes
+        private int _dataLength;
+        public AsyncOut()
         {
-            get
-            {
-                SetRawData();
-                return _rawBytes;
-            }
-        }
-
-        public HostTransmisionType HostTransmisionType
-        {
-            get
-            {
-                return HostTransmisionType.ASYNC_OUT_FROM_HOST;
-            }
+            TransmisionType = HostTransmisionType.ASYNC_OUT_FROM_HOST;
         }
 
         /// <summary>
         /// Max: 62
         /// </summary>
-        public int ThisSegmentDataLength { get; set; }
-
-        public byte[] DataArray { get; private set; }
-
-        public AsyncOut_FromHost()
+        public int ThisSegmentDataLength
         {
-            _rawBytes = new byte[65];
-            DataArray = new byte[62];
+            set
+            {
+                Validate(value, ASYNC_OUT_MAX_SIZE_OF_DATA);
+                _dataLength = value;
+            }
+            get { return _dataLength; }
+        }
+
+        public byte[] Data
+        {
+            private set
+            {
+                Validate(value.Length, ASYNC_OUT_MAX_SIZE_OF_DATA, "Array size is too large to fit.");
+                ReportToSend.UserData = value;
+                _dataLength = value.Length;
+            }
+            get { return ReportToSend.UserData; }
         }
 
         /// <summary>
@@ -826,100 +887,84 @@ namespace INFRA.USB
         /// <param name="length">Max: 62</param>
         public void SetData(byte[] source, int startIndex, int length)
         {
-            for (int i = 0; i < length; i++)
+            Validate(length, ASYNC_OUT_MAX_SIZE_OF_DATA, "Data size is too large to fit.");
+            _dataLength = length;
+            for (var i = 0; i < length; i++)
             {
-                DataArray[i] = source[startIndex + i];
+                Data[i] = source[startIndex + i];
             }
         }
 
-        private void SetRawData()
+        protected override void ProcessRawData()
         {
-            int index = 1;  // hid start index start from 1
-            _rawBytes[index++] = (byte)HostTransmisionType;
-            _rawBytes[index++] = (byte)ThisSegmentDataLength;
-            for (int i = 0; i < DataArray.Length; i++)
+            ReportToSend.UserData[0] = (byte)TransmisionType;
+            ReportToSend.UserData[1] = (byte)ThisSegmentDataLength;
+            for (int i = 0; i < _dataLength; i++)
             {
-                _rawBytes[index++] = DataArray[i];
+                ReportToSend.UserData[2 + i] = Data[i];
             }
         }
     }
 
-    public class AsyncInStart_FromHost
+    public class AsyncInStart : HostPacket
     {
-        private byte[] _rawBytes;
-        public byte[] RawBytes
+        private int _requiredDataLength;
+        private int _timeout;
+        public AsyncInStart()
         {
-            get
-            {
-                SetRawData();
-                return _rawBytes;
-            }
-        }
-
-        public HostTransmisionType HostTransmisionType
-        {
-            get
-            {
-                return HostTransmisionType.ASYNC_IN_START_FROM_HOST;
-            }
+            TransmisionType = HostTransmisionType.ASYNC_IN_START_FROM_HOST;
+            _requiredDataLength = 0;
+            _timeout = 0;
         }
 
         /// <summary>
         /// Max: 62
         /// </summary>
-        public int RequiredDataLength { get; set; }
+        public int RequiredDataLength
+        {
+            set
+            {
+                Validate(value, ASYNC_IN_START_MAX_SIZE_OF_DATA);
+                _requiredDataLength = value;
+            }
+            get { return _requiredDataLength; }
+        }
 
         /// <summary>
         /// Max: 65535
         /// </summary>
-        public int Timeout { get; set; }
-
-        public AsyncInStart_FromHost()
+        public int Timeout
         {
-            _rawBytes = new byte[65];
+            set
+            {
+                Validate(value, MAX_SIZE_OF_TIMEOUT);
+                _timeout = value;
+            }
+            get { return _timeout; }
         }
 
-        private void SetRawData()
+        protected override void ProcessRawData()
         {
-            int index = 1;  // hid start index start from 1
-            _rawBytes[index++] = (byte)HostTransmisionType;
-            _rawBytes[index++] = (byte)RequiredDataLength;
-            _rawBytes[index++] = BitConverter.GetBytes(Timeout)[0];
-            _rawBytes[index] = BitConverter.GetBytes(Timeout)[1];
+            ReportToSend.UserData[0] = (byte)TransmisionType;
+            ReportToSend.UserData[1] = (byte)RequiredDataLength;
+            ReportToSend.UserData[2] = BitConverter.GetBytes(Timeout)[0];
+            ReportToSend.UserData[3] = BitConverter.GetBytes(Timeout)[1];
         }
     }
 
-    public class AsyncInStop_FromHost
+    public class AsyncInStop : HostPacket
     {
-        private byte[] _rawBytes;
-        public byte[] RawBytes
+        public AsyncInStop()
         {
-            get
-            {
-                SetRawData();
-                return _rawBytes;
-            }
+            TransmisionType = HostTransmisionType.ASYNC_IN_STOP_FROM_HOST;
         }
 
-        public HostTransmisionType HostTransmisionType
+        protected override void ProcessRawData()
         {
-            get
-            {
-                return HostTransmisionType.ASYNC_IN_STOP_FROM_HOST;
-            }
+            ReportToSend.UserData[0] = (byte)TransmisionType;
         }
-
-        public AsyncInStop_FromHost()
-        {
-            _rawBytes = new byte[65];
-        }
-
-        private void SetRawData()
-        {
-            int index = 1;  // hid start index start from 1
-            _rawBytes[index] = (byte)HostTransmisionType;
-        }
-    }
+    } 
+    #endregion
 
     public class BaudRateResponse_FromDevice
     {
