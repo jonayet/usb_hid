@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Windows.Forms;
+using INFRA.USB.HidToSerial;
 
 namespace INFRA.USB.Classes
 {
