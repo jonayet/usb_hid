@@ -30,6 +30,7 @@ namespace INFRA.USB.HelperClasses
         public void Start()
         {
             var t = new Thread(RunForm);
+            t.Name = "HidDeviceNotifier";
             t.SetApartmentState(ApartmentState.STA);
             t.IsBackground = true;
             t.Start();
