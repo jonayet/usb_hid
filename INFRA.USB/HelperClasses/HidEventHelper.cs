@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Windows.Forms;
 using INFRA.USB.HidToSerial;
 
-namespace INFRA.USB.Classes
+namespace INFRA.USB.HelperClasses
 {
     public delegate void ReportRecievedEventHandler(object sender, ReportRecievedEventArgs e);
     public delegate void SerialPacketRecievedEventHandler(object sender, SerialPacketRecievedEventArgs e);

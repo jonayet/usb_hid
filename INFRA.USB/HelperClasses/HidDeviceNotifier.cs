@@ -5,7 +5,7 @@ using System.Threading;
 using System.Windows.Forms;
 using INFRA.USB.DllWrappers;
 
-namespace INFRA.USB.Classes
+namespace INFRA.USB.HelperClasses
 {
     internal class HidDeviceNotifier : Form
     {

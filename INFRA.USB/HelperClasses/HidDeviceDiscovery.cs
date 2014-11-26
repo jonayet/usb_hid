@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
 using INFRA.USB.DllWrappers;
 
-namespace INFRA.USB.Classes
+namespace INFRA.USB.HelperClasses
 {
     internal class HidDeviceDiscovery
     {

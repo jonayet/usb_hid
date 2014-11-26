@@ -1,5 +1,5 @@
 ﻿using System;
-using INFRA.USB.Classes;
+using INFRA.USB.HelperClasses;
 
 namespace INFRA.USB.HidToSerial
 {
@@ -43,17 +43,17 @@ namespace INFRA.USB.HidToSerial
 
         public BaudRateResponse_FromDevice(byte[] rawData)
         {
-            _rawBytes = new byte[64];
-            _dataBytes = new byte[40];
+            //_rawBytes = new byte[64];
+            //_dataBytes = new byte[40];
 
-            // copy raw bytes
-            HidToSerialCommon.CopyDataArray(ref _rawBytes, rawData, 1, _rawBytes.Length);
+            //// copy raw bytes
+            //HidToSerialCommon.CopyDataArray(ref _rawBytes, rawData, 1, _rawBytes.Length);
 
-            // get transmission type
-            _transmissionType = (DeviceTransmisionType)_rawBytes[0];
+            //// get transmission type
+            //_transmissionType = (DeviceTransmisionType)_rawBytes[0];
 
-            // copy data bytes
-            HidToSerialCommon.CopyDataArray(ref _dataBytes, _rawBytes, 1, DataBytes.Length);
+            //// copy data bytes
+            //HidToSerialCommon.CopyDataArray(ref _dataBytes, _rawBytes, 1, DataBytes.Length);
         }
 
         protected override void ProcessRawReport()

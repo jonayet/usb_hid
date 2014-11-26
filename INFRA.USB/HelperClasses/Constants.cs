@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace INFRA.USB.Classes
+namespace INFRA.USB.HelperClasses
 {
     internal static class Constants
     {

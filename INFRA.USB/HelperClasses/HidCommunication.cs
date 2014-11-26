@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -7,7 +6,7 @@ using System.Text;
 using System.Threading;
 using INFRA.USB.DllWrappers;
 
-namespace INFRA.USB.Classes
+namespace INFRA.USB.HelperClasses
 {
 	/// <summary>
 	/// Abstract HID device : Derive your new device controller class from this

@@ -1,4 +1,4 @@
-﻿using INFRA.USB.Classes;
+﻿using INFRA.USB.HelperClasses;
 
 namespace INFRA.USB.HidToSerial
 {

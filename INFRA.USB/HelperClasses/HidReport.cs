@@ -1,6 +1,6 @@
 using System;
 
-namespace INFRA.USB.Classes
+namespace INFRA.USB.HelperClasses
 {
 	/// <summary>
 	/// Defines a base class for output reports. To use output reports, just put the bytes into the raw buffer.

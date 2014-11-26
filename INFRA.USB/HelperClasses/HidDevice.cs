@@ -1,6 +1,6 @@
 ﻿using Microsoft.Win32.SafeHandles;
 
-namespace INFRA.USB.Classes
+namespace INFRA.USB.HelperClasses
 {
     /// <summary>
     /// Class containg information about a connected USB HID device
