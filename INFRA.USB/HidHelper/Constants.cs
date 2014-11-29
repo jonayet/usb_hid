@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace INFRA.USB.HelperClasses
+namespace INFRA.USB.HidHelper
 {
     internal static class Constants
     {

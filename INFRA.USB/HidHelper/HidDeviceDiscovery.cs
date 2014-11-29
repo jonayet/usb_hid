@@ -6,18 +6,11 @@ using System.Text;
 using INFRA.USB.DllWrappers;
 using Microsoft.Win32.SafeHandles;
 
-namespace INFRA.USB.HelperClasses
+namespace INFRA.USB.HidHelper
 {
     internal class HidDeviceDiscovery
     {
-        private readonly HidDevice _hidDevice;
-
-        public HidDeviceDiscovery(ref HidDevice hidDevice)
-        {
-            _hidDevice = hidDevice;
-        }
-
-        public bool FindTargetDevice()
+        public bool FindDevice(ushort vendorId, ushort productId, int index, ref string pathString)
         {
             // Initialise the internal variables required for performing the search
             Guid hidGuid;
@@ -25,18 +18,7 @@ namespace INFRA.USB.HelperClasses
             var devicePathList = new List<string>();
 
             // build the path search string
-            // if both VendorID & ProductID are zero, search by PathString
-            // otherwise, search by  VendorID & ProductID
-            string searchText;
-            if (_hidDevice.VendorID == 0 && _hidDevice.ProductID == 0)
-            {
-                if (string.IsNullOrEmpty(_hidDevice.PathString)) { return false; }
-                searchText = _hidDevice.PathString.ToLower();
-            }
-            else
-            {
-                searchText = string.Format("vid_{0:x4}&pid_{1:x4}", _hidDevice.VendorID, _hidDevice.ProductID);
-            }
+            string searchText = string.Format("vid_{0:x4}&pid_{1:x4}", vendorId, productId);
 
             Hid.HidD_GetHidGuid(out hidGuid);
             var deviceInfoSet = SetupApi.SetupDiGetClassDevs(ref systemHidGuid, IntPtr.Zero, IntPtr.Zero, Constants.DIGCF_PRESENT | Constants.DIGCF_DEVICEINTERFACE);
@@ -54,8 +36,8 @@ namespace INFRA.USB.HelperClasses
                         if (SetupApi.SetupDiGetDeviceInterfaceDetail(deviceInfoSet, ref did, ref didetail, Marshal.SizeOf(didetail) - (int)Marshal.OffsetOf(didetail.GetType(), "DevicePath"), IntPtr.Zero, IntPtr.Zero))
                         {
                             //do a string search, if we find the VID/PID string then we found our device!
-                            var devicePath = didetail.DevicePath;
-                            if (devicePath != null && devicePath.ToLower().Contains(searchText))
+                            var devicePath = didetail.DevicePath.ToLower();
+                            if (devicePath.Contains(searchText))
                             {
                                 devicePathList.Add(devicePath);
                             }   
@@ -64,73 +46,9 @@ namespace INFRA.USB.HelperClasses
                 }
                 catch(Exception ex)
                 {
-                    Debug.WriteLine(string.Format("usbGenericHidCommunication:findHidDevices() -> EXCEPTION: Something went south whilst trying to get devices with matching GUIDs - giving up!"));
+                    Debug.WriteLine("HidDeviceDiscovery:findDevice() -> EXCEPTION!");
+                    Debug.WriteLine(ex.ToString());
                     return false;
-                }
-                finally
-                {
-                    SetupApi.SetupDiDestroyDeviceInfoList(deviceInfoSet);
-                }
-            }
-
-            // check back device index
-            if (devicePathList.Count > _hidDevice.Index)
-            {
-                if (!string.IsNullOrEmpty(devicePathList[_hidDevice.Index]))
-                {
-                    _hidDevice.PathString = devicePathList[_hidDevice.Index];
-                    _hidDevice.IsAttached = true;
-                }
-            }
-
-            // is the device attached?
-            if (!_hidDevice.IsAttached)
-            {
-                Debug.WriteLine("usbGenericHidCommunication:findTargetDevice() -> Target device not found! --------------------- :(");
-                return false;
-            }
-
-            Debug.WriteLine("usbGenericHidCommunication:findTargetDevice() -> Target device found! -------------------------- :)");
-            return true;
-        }
-
-        #region Static Methods
-        internal static string GetPathString(ushort vid, ushort pid, int index)
-        {
-            // Initialise the internal variables required for performing the search
-            Guid hidGuid;
-            var systemHidGuid = Hid.HIDGuid;
-            var devicePathList = new List<string>();
-            string searchText = string.Format("vid_{0:x4}&pid_{1:x4}", vid, pid);
-
-            Hid.HidD_GetHidGuid(out hidGuid);
-            var deviceInfoSet = SetupApi.SetupDiGetClassDevs(ref systemHidGuid, IntPtr.Zero, IntPtr.Zero, Constants.DIGCF_PRESENT | Constants.DIGCF_DEVICEINTERFACE);
-            if (deviceInfoSet != Constants.InvalidHandle)
-            {
-                try
-                {
-                    var did = new Structures.SpDeviceInterfaceData();
-                    did.cbSize = Marshal.SizeOf(did);
-
-                    for (int i = 0; SetupApi.SetupDiEnumDeviceInterfaces(deviceInfoSet, IntPtr.Zero, ref hidGuid, i, ref did); i++)
-                    {
-                        var didetail = new Structures.SpDeviceInterfaceDetailData();
-                        didetail.Size = (IntPtr.Size == 8) ? 8 : (4 + Marshal.SystemDefaultCharSize);
-                        if (SetupApi.SetupDiGetDeviceInterfaceDetail(deviceInfoSet, ref did, ref didetail, Marshal.SizeOf(didetail) - (int)Marshal.OffsetOf(didetail.GetType(), "DevicePath"), IntPtr.Zero, IntPtr.Zero))
-                        {
-                            //do a string search, if we find the VID/PID string then we found our device!
-                            var devicePath = didetail.DevicePath;
-                            if (devicePath != null && devicePath.ToLower().Contains(searchText))
-                            {
-                                devicePathList.Add(devicePath);
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine(string.Format("usbGenericHidCommunication:GetPathString() -> EXCEPTION: Something went south whilst trying to get devices with matching GUIDs - giving up!"));
-                    return null;
                 }
                 finally
                 {
@@ -141,11 +59,19 @@ namespace INFRA.USB.HelperClasses
             // check back device index
             if (devicePathList.Count > index)
             {
-                if (!string.IsNullOrEmpty(devicePathList[index])) { return devicePathList[index]; }
+                if (!string.IsNullOrEmpty(devicePathList[index]))
+                {
+                    pathString = devicePathList[index];
+                    Debug.WriteLine("HidDeviceDiscovery:findDevice() -> Target device found! -------------------------- :)");
+                    return true;
+                }
             }
-            return null;
+
+            Debug.WriteLine("HidDeviceDiscovery:findDevice() -> Target device not found! -------------------------- :(");
+            return false;
         }
 
+        #region Static Methods
         private static HidDevice CreateDeviceFromPath(string devicePath)
         {
             string productName;
@@ -244,7 +170,7 @@ namespace INFRA.USB.HelperClasses
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine(string.Format("usbGenericHidCommunication:findHidDevices() -> EXCEPTION: Something went south whilst trying to get devices with matching GUIDs - giving up!"));
+                    Debug.WriteLine(string.Format("HidDeviceDiscovery:findDevice() -> EXCEPTION: Something went south whilst trying to get devices with matching GUIDs - giving up!"));
                     return deviceList;
                 }
                 finally

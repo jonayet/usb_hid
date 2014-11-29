@@ -5,7 +5,7 @@ using System.Threading;
 using System.Windows.Forms;
 using INFRA.USB.DllWrappers;
 
-namespace INFRA.USB.HelperClasses
+namespace INFRA.USB.HidHelper
 {
     internal class HidDeviceNotifier : Form
     {
@@ -15,14 +15,18 @@ namespace INFRA.USB.HelperClasses
         #endregion
 
         #region private fields
-        private HidDevice _hidDevice;
-        private HidDeviceNotifier _instance; 
+        private HidDeviceNotifier _instance;
+        private readonly ushort _vendorId;
+        private readonly ushort _productId;
+        private bool _isAttached;
         #endregion
 
         #region constructor
-        public HidDeviceNotifier(ref HidDevice hidDevice)
+        public HidDeviceNotifier(ushort vendorId, ushort productId, bool isAttached)
         {
-            _hidDevice = hidDevice;
+            _vendorId = vendorId;
+            _productId = productId;
+            _isAttached = isAttached;
         } 
         #endregion
 
@@ -82,9 +86,9 @@ namespace INFRA.USB.HelperClasses
                         Debug.WriteLine(string.Format("HidDeviceNotifier:handleDeviceNotificationMessages() -> A new device attached"));
 
                         // Was this our target device?  
-                        if (IsNotificationForTargetDevice(m) && !_hidDevice.IsAttached)
+                        if (IsNotificationForTargetDevice(m) && !_isAttached)
                         {
-                            _hidDevice.IsAttached = true;
+                            _isAttached = true;
                             // If so attach the USB device.
                             Debug.WriteLine(string.Format("HidDeviceNotifier:handleDeviceNotificationMessages() -> The target USB device has been attached -------- :)"));
                             ReportDeviceAttached(m);
@@ -96,9 +100,9 @@ namespace INFRA.USB.HelperClasses
                         Debug.WriteLine(string.Format("HidDeviceNotifier:handleDeviceNotificationMessages() -> A device has been removed"));
 
                         // Was this our target device?  
-                        if (IsNotificationForTargetDevice(m) && _hidDevice.IsAttached)
+                        if (IsNotificationForTargetDevice(m) && !_isAttached)
                         {
-                            _hidDevice.IsAttached = false;
+                            _isAttached = false;
                             // If so detach the USB device.
                             Debug.WriteLine(string.Format("HidDeviceNotifier:handleDeviceNotificationMessages() -> The target USB device has been removed ----------- :("));
                             ReportDeviceDetached(m);
@@ -129,24 +133,13 @@ namespace INFRA.USB.HelperClasses
                         dbcc_name = new Char[stringSize + 1]
                     };
                     Marshal.PtrToStructure(m.LParam, devBroadcastDeviceInterface);
-                    var devicePathString = new string(devBroadcastDeviceInterface.dbcc_name, 0, stringSize);
+                    var devicePathString = new string(devBroadcastDeviceInterface.dbcc_name, 0, stringSize).ToLower();
 
                     // build the search string
-                    // if both VendorID & ProductID  are zero, search by PathString
-                    // otherwise, search by  VendorID & ProductID
-                    string searchText;
-                    if (_hidDevice.VendorID == 0 && _hidDevice.ProductID == 0)
-                    {
-                        searchText = _hidDevice.PathString;
-                        if (string.IsNullOrEmpty(searchText)) { return false; }
-                    }
-                    else
-                    {
-                        searchText = string.Format("vid_{0:x4}&pid_{1:x4}", _hidDevice.VendorID, _hidDevice.ProductID);
-                    }
+                    string searchText = string.Format("vid_{0:x4}&pid_{1:x4}", _vendorId, _productId);
 
                     // Compare the device name with our target device's VID, PID, Index or PathString (strings are moved to lower case)
-                    if (devicePathString.ToLower().Contains(searchText.ToLower())) { return true; }
+                    if (devicePathString.Contains(searchText)) { return true; }
                 }
             }
             catch (Exception ex)
@@ -159,7 +152,7 @@ namespace INFRA.USB.HelperClasses
 
         private void RunForm()
         {
-            Application.Run(new HidDeviceNotifier(ref _hidDevice));
+            Application.Run(new HidDeviceNotifier(_vendorId, _productId, _isAttached));
         }
 
         private void EndForm()

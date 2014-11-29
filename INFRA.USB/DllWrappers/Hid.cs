@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Text;
-using INFRA.USB.HelperClasses;
+using INFRA.USB.HidHelper;
 using Microsoft.Win32.SafeHandles;
 
 namespace INFRA.USB.DllWrappers

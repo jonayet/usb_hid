@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using INFRA.USB.DllWrappers;
 
-namespace INFRA.USB.HelperClasses
+namespace INFRA.USB.HidHelper
 {
 	/// <summary>
 	/// Abstract HID device : Derive your new device controller class from this
@@ -42,7 +42,7 @@ namespace INFRA.USB.HelperClasses
             // do we have device PathString?
             if (string.IsNullOrEmpty(_hidDevice.PathString))
             {
-                _hidDevice.PathString = HidDeviceDiscovery.GetPathString(_hidDevice.VendorID, _hidDevice.ProductID, _hidDevice.Index);
+                return false;
             }
 
             try

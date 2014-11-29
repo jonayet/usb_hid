@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace INFRA.USB.HelperClasses
+namespace INFRA.USB.HidHelper
 {
 	/// <summary>
 	/// Class that wraps USB API calls and structures.

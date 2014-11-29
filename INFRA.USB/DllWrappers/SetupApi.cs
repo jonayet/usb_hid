@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
-using INFRA.USB.HelperClasses;
+using INFRA.USB.HidHelper;
 
 namespace INFRA.USB.DllWrappers
 {

@@ -1,6 +1,6 @@
 using System;
 
-namespace INFRA.USB.HelperClasses
+namespace INFRA.USB.HidHelper
 {
 	/// <summary>
 	/// Defines a base class for output reports. To use output reports, just put the bytes into the raw buffer.
@@ -104,6 +104,7 @@ namespace INFRA.USB.HelperClasses
 	    /// </summary>
         public HidInputReport()
 	    {
+	        ReportDataLength = 1;
             _userData = new byte[UserDataLength];
 	    }
 	}

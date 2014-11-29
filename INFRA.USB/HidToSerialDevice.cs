@@ -1,9 +1,10 @@
 ﻿using System.Threading;
-using INFRA.USB.HelperClasses;
+using INFRA.USB.HidHelper;
+using INFRA.USB.HidToSerialHelper;
 
-namespace INFRA.USB.HidToSerial
+namespace INFRA.USB
 {
-    public class HidToserialCommunication
+    public class HidToSerialDevice
     {
         #region Packet Communication Methods
 
@@ -21,26 +22,42 @@ namespace INFRA.USB.HidToSerial
         /// Contains last SegmentLength from Device
         /// </summary>
         public int DeviceSegmentLength { get; private set; }
-        
+
         /// <summary>
         /// 
         /// </summary>
         public byte[] Data { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public HidDevice HidDevice { get; private set; }
+
         
-        private readonly ManualResetEvent _signalEvent = new ManualResetEvent(false);
-        private readonly HidInterface _hidInterface;
+        private readonly ManualResetEvent _signalEvent;
         private HidInputReport _lastInputReport;
 
-        public HidToserialCommunication(HidInterface hidInterface)
+        public HidToSerialDevice(ushort vendorId, ushort productId, int index = 0)
         {
+            _signalEvent = new ManualResetEvent(false);
             _lastInputReport = new HidInputReport();
-            _hidInterface = hidInterface;
-            _hidInterface.OnReportReceived += _hidInterface_OnReportReceived;
+            HidDevice = new HidDevice(vendorId, productId, index);
+            HidDevice.OnReportReceived += _hidDevice_OnReportReceived;
             HostTransmisionType = HostTransmisionType.NONE_FROM_HOST;
             DeviceTransmisionType = DeviceTransmisionType.NONE_FROM_DEVICE;
         }
 
-        void _hidInterface_OnReportReceived(object sender, ReportRecievedEventArgs e)
+        public void Connect()
+        {
+            HidDevice.Connect();
+        }
+
+        public void Close()
+        {
+            HidDevice.Dispose();
+        }
+
+        void _hidDevice_OnReportReceived(object sender, ReportRecievedEventArgs e)
         {
             DeviceTransmisionType = (DeviceTransmisionType)e.Report.UserData[0];
             _lastInputReport = e.Report;
@@ -49,9 +66,9 @@ namespace INFRA.USB.HidToSerial
 
         public SingleResponse_FromDevice SingleQuery(SingleQuery_FromHost query)
         {
-            lock (_hidInterface)
+            lock (HidDevice)
             {
-                _hidInterface.Write(query.ReportToSend);
+                //_hidInterface.Write(query.ReportToSend);
                 _signalEvent.Reset();
                 if (_signalEvent.WaitOne(1000))
                 {

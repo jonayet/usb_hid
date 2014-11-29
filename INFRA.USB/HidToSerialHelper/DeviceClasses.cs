@@ -1,7 +1,7 @@
 ﻿using System;
-using INFRA.USB.HelperClasses;
+using INFRA.USB.HidHelper;
 
-namespace INFRA.USB.HidToSerial
+namespace INFRA.USB.HidToSerialHelper
 {
     // ReSharper disable CSharpWarnings::CS1591
     // ReSharper disable InconsistentNaming
