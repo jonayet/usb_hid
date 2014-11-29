@@ -42,12 +42,6 @@ namespace INFRA.USB
             set { _hidDevice.Index = value; }
         }
 
-        public static string NTString(char[] buffer)
-        {
-            int index = Array.IndexOf(buffer, '\0');
-            return new string(buffer, 0, index >= 0 ? index : buffer.Length);
-        }
-
         /// <summary>Details Device Information</summary>
         public HidDevice HidDevice
         {
@@ -116,9 +110,9 @@ namespace INFRA.USB
         #endregion
 
         #region Public Methods
-        public List<HidDevice> GetDeviceList()
+        public static List<HidDevice> GetDeviceList()
         {
-            return _hidDeviceDiscovery.GetDeviceList();
+            return HidDeviceDiscovery.GetDeviceList();
         }
 
         public void ConnectTargetDevice()

@@ -40,7 +40,7 @@ namespace INFRA.USB.HidToSerial
         }
     }
 
-    public class BaudRateCommand : HostPacket
+    public class BaudRateCommand_FromHost : HostPacket
     {
         private int _baudRate;
 
@@ -63,7 +63,7 @@ namespace INFRA.USB.HidToSerial
             get { return _baudRate; }
         }
 
-        public BaudRateCommand()
+        public BaudRateCommand_FromHost()
         {
             TransmisionType = HostTransmisionType.BAUDRATE_CMD_FROM_HOST;
             _baudRate = 9;
@@ -76,13 +76,13 @@ namespace INFRA.USB.HidToSerial
         }
     }
 
-    public class SingleQuery : HostPacket
+    public class SingleQuery_FromHost : HostPacket
     {
         private int _thisSegmentDataLength;
         private int _expectedDataLength;
         private int _timeout;
 
-        public SingleQuery()
+        public SingleQuery_FromHost()
         {
             TransmisionType = HostTransmisionType.SINGLE_QUERY_FROM_HOST;
             _thisSegmentDataLength = 0;
@@ -174,7 +174,7 @@ namespace INFRA.USB.HidToSerial
         }
     }
 
-    public class SyncOutData : HostPacket
+    public class SyncOutData_FromHost : HostPacket
     {
         private int _thisSegmentDataLength;
         private int _noOfRemainingPackets;
@@ -244,7 +244,7 @@ namespace INFRA.USB.HidToSerial
             get { return ReportToSend.UserData; }
         }
 
-        public SyncOutData()
+        public SyncOutData_FromHost()
         {
             TransmisionType = HostTransmisionType.SYNC_OUT_DATA_FROM_HOST;
             _thisSegmentDataLength = 0;
@@ -285,7 +285,7 @@ namespace INFRA.USB.HidToSerial
         }
     }
 
-    public class SyncInStart : HostPacket
+    public class SyncInStart_FromHost : HostPacket
     {
         private int _timeout;
 
@@ -302,7 +302,7 @@ namespace INFRA.USB.HidToSerial
             get { return _timeout; }
         }
 
-        public SyncInStart()
+        public SyncInStart_FromHost()
         {
             _timeout = 0;
             TransmisionType = HostTransmisionType.SYNC_IN_START_FROM_HOST;
@@ -316,9 +316,9 @@ namespace INFRA.USB.HidToSerial
         }
     }
 
-    public class SyncInRead : HostPacket
+    public class SyncInRead_FromHost : HostPacket
     {
-        public SyncInRead()
+        public SyncInRead_FromHost()
         {
             TransmisionType = HostTransmisionType.SYNC_IN_READ_FROM_HOST;
         }
@@ -329,7 +329,7 @@ namespace INFRA.USB.HidToSerial
         }
     }
 
-    public class SyncInAck : HostPacket
+    public class SyncInAck_FromHost : HostPacket
     {
         private int _hostAckByte;
 
@@ -346,7 +346,7 @@ namespace INFRA.USB.HidToSerial
             get { return _hostAckByte; }
         }
 
-        public SyncInAck()
+        public SyncInAck_FromHost()
         {
             TransmisionType = HostTransmisionType.SYNC_IN_ACK_FROM_HOST;
         }
@@ -358,10 +358,10 @@ namespace INFRA.USB.HidToSerial
         }
     }
 
-    public class AsyncOut : HostPacket
+    public class AsyncOut_FromHost : HostPacket
     {
         private int _dataLength;
-        public AsyncOut()
+        public AsyncOut_FromHost()
         {
             TransmisionType = HostTransmisionType.ASYNC_OUT_FROM_HOST;
         }
@@ -417,11 +417,11 @@ namespace INFRA.USB.HidToSerial
         }
     }
 
-    public class AsyncInStart : HostPacket
+    public class AsyncInStart_FromHost : HostPacket
     {
         private int _requiredDataLength;
         private int _timeout;
-        public AsyncInStart()
+        public AsyncInStart_FromHost()
         {
             TransmisionType = HostTransmisionType.ASYNC_IN_START_FROM_HOST;
             _requiredDataLength = 0;
@@ -463,9 +463,9 @@ namespace INFRA.USB.HidToSerial
         }
     }
 
-    public class AsyncInStop : HostPacket
+    public class AsyncInStop_FromHost : HostPacket
     {
-        public AsyncInStop()
+        public AsyncInStop_FromHost()
         {
             TransmisionType = HostTransmisionType.ASYNC_IN_STOP_FROM_HOST;
         }
