@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
@@ -115,6 +116,11 @@ namespace INFRA.USB
         #endregion
 
         #region Public Methods
+        public List<HidDevice> GetDeviceList()
+        {
+            return _hidDeviceDiscovery.GetDeviceList();
+        }
+
         public void ConnectTargetDevice()
         {
             if (_hidDeviceDiscovery.FindTargetDevice())
