@@ -1,38 +1,99 @@
-﻿using INFRA.USB.HelperClasses;
+﻿using System.Threading;
+using INFRA.USB.HelperClasses;
 
 namespace INFRA.USB.HidToSerial
 {
-    #region Transmission Types
-    public enum HostTransmisionType
-    {
-        NONE_FROM_HOST = 0,
-        BAUDRATE_CMD_FROM_HOST,
-        SINGLE_QUERY_FROM_HOST,
-        SYNC_OUT_DATA_FROM_HOST,
-        SYNC_IN_START_FROM_HOST,
-        SYNC_IN_READ_FROM_HOST,
-        SYNC_IN_ACK_FROM_HOST,
-        ASYNC_OUT_FROM_HOST,
-        ASYNC_IN_START_FROM_HOST,
-        ASYNC_IN_STOP_FROM_HOST,
-        UNKNOWN_FROM_HOST
-    }
-
-    public enum DeviceTransmisionType
-    {
-        NONE_FROM_DEVICE = 0,
-        BAUDRATE_RESP_FROM_DEVICE,
-        SINGLE_RESPONSE_FROM_DEVICE,
-        SYNC_OUT_ACK_FROM_DEVICE,
-        SYNC_IN_DATA_FROM_DEVICE,
-        ASYNC_IN_DATA_FROM_DEVICE,
-        UNKNOWN_FROM_DEVICE
-    } 
-    #endregion
-
     public class HidToserialCommunication
     {
         #region Packet Communication Methods
+
+        /// <summary>
+        /// Contains last TransmisionType from Host
+        /// </summary>
+        public HostTransmisionType HostTransmisionType { get; private set; }
+
+        /// <summary>
+        /// Contains last TransmisionType from Device
+        /// </summary>
+        public DeviceTransmisionType DeviceTransmisionType { get; private set; }
+
+        /// <summary>
+        /// Contains last SegmentLength from Device
+        /// </summary>
+        public int DeviceSegmentLength { get; private set; }
+        
+        /// <summary>
+        /// 
+        /// </summary>
+        public byte[] Data { get; private set; }
+        
+        private readonly ManualResetEvent _signalEvent = new ManualResetEvent(false);
+        private readonly HidInterface _hidInterface;
+        private HidInputReport _lastInputReport;
+
+        public HidToserialCommunication(HidInterface hidInterface)
+        {
+            _lastInputReport = new HidInputReport();
+            _hidInterface = hidInterface;
+            _hidInterface.OnReportReceived += _hidInterface_OnReportReceived;
+            HostTransmisionType = HostTransmisionType.NONE_FROM_HOST;
+            DeviceTransmisionType = DeviceTransmisionType.NONE_FROM_DEVICE;
+        }
+
+        void _hidInterface_OnReportReceived(object sender, ReportRecievedEventArgs e)
+        {
+            DeviceTransmisionType = (DeviceTransmisionType)e.Report.UserData[0];
+            _lastInputReport = e.Report;
+            _signalEvent.Set();
+        }
+
+        public SingleResponse_FromDevice SingleQuery(SingleQuery_FromHost query)
+        {
+            lock (_hidInterface)
+            {
+                _hidInterface.Write(query.ReportToSend);
+                _signalEvent.Reset();
+                if (_signalEvent.WaitOne(1000))
+                {
+                    if (DeviceTransmisionType == DeviceTransmisionType.SINGLE_RESPONSE_FROM_DEVICE)
+                    {
+                        var response = new SingleResponse_FromDevice { ReportReceived = _lastInputReport };
+                        Data = response.Data;
+                        DeviceSegmentLength = response.ThisSegmentDataLength;
+                        return response;
+                    }
+                }
+            }
+            return null;
+        }
+
+        public SingleResponse_FromDevice SingleQuery(byte[] data,  int expectedDataLength = 0, int timeout_ms = 0)
+        {
+            var aQuery = new SingleQuery_FromHost
+            {
+                Data = data,
+                ExpectedDataLength = expectedDataLength,
+                Timeout = timeout_ms,
+                ThisSegmentDataLength = data.Length
+            };
+            return SingleQuery(aQuery);
+        }
+
+        /*
+        private bool HasResponse()
+        {
+            switch (HostTransmisionType)
+            {
+                case HostTransmisionType.BAUDRATE_CMD_FROM_HOST: return true;
+                case HostTransmisionType.SINGLE_QUERY_FROM_HOST: return true;
+                case HostTransmisionType.SYNC_OUT_DATA_FROM_HOST: return true;
+                case HostTransmisionType.SYNC_IN_START_FROM_HOST: return true;
+                case HostTransmisionType.SYNC_IN_READ_FROM_HOST: return true;
+                case HostTransmisionType.ASYNC_IN_START_FROM_HOST: return true;
+                default: return false;
+            }
+        }
+        
         /// <summary>
         /// Contains last TransmisionType from Host
         /// </summary>
@@ -73,28 +134,7 @@ namespace INFRA.USB.HidToSerial
         private int _deviceAckByte = 0;
         private int _hostAckByte = 0;
         private bool _isPacketReceiving = false;
-        private HidDevice _hidDevice;
-
-        public HidToserialCommunication(HidDevice hidDevice)
-        {
-            _hidDevice = hidDevice;
-        }
-
-        private bool HasResponse()
-        {
-            switch (HostTransmisionType)
-            {
-                case HostTransmisionType.BAUDRATE_CMD_FROM_HOST: return true;
-                case HostTransmisionType.SINGLE_QUERY_FROM_HOST: return true;
-                case HostTransmisionType.SYNC_OUT_DATA_FROM_HOST: return true;
-                case HostTransmisionType.SYNC_IN_START_FROM_HOST: return true;
-                case HostTransmisionType.SYNC_IN_READ_FROM_HOST: return true;
-                case HostTransmisionType.ASYNC_IN_START_FROM_HOST: return true;
-                default: return false;
-            }
-        }
-
-        /*
+        
         private void ProcessPacket(byte[] inputReport)
         {
             var transmisionType = (DeviceTransmisionType)inputReport[1];
@@ -346,16 +386,31 @@ namespace INFRA.USB.HidToSerial
     
     #endregion
 
-    
-
-    static class HidToSerialCommon
+    #region Transmission Types
+    public enum HostTransmisionType
     {
-        public static void CopyDataArray( ref byte[] destination, byte[] source, int startIndex, int length)
-        {
-            for(int i = 0; i < length; i++)
-            {
-                destination[i] = source[startIndex + i];
-            }
-        }
+        NONE_FROM_HOST = 0,
+        BAUDRATE_CMD_FROM_HOST,
+        SINGLE_QUERY_FROM_HOST,
+        SYNC_OUT_DATA_FROM_HOST,
+        SYNC_IN_START_FROM_HOST,
+        SYNC_IN_READ_FROM_HOST,
+        SYNC_IN_ACK_FROM_HOST,
+        ASYNC_OUT_FROM_HOST,
+        ASYNC_IN_START_FROM_HOST,
+        ASYNC_IN_STOP_FROM_HOST,
+        UNKNOWN_FROM_HOST
     }
+
+    public enum DeviceTransmisionType
+    {
+        NONE_FROM_DEVICE = 0,
+        BAUDRATE_RESP_FROM_DEVICE,
+        SINGLE_RESPONSE_FROM_DEVICE,
+        SYNC_OUT_ACK_FROM_DEVICE,
+        SYNC_IN_DATA_FROM_DEVICE,
+        ASYNC_IN_DATA_FROM_DEVICE,
+        UNKNOWN_FROM_DEVICE
+    }
+    #endregion
 }

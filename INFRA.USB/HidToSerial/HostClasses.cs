@@ -3,15 +3,12 @@ using INFRA.USB.HelperClasses;
 
 namespace INFRA.USB.HidToSerial
 {
+    // ReSharper disable CSharpWarnings::CS1591
+    // ReSharper disable InconsistentNaming
+
     public abstract class HostPacket
     {
-        protected const int SINGLE_QUERY_MAX_SIZE_OF_DATA = 59;
-        protected const int SINGLE_QUERY_MAX_SIZE_OF_RESPONSE = 62;
-        protected const int SYNC_OUT_MAX_SIZE_OF_DATA = 58;
-        protected const int SYNC_OUT_MAX_SIZE_OF_LAST_PACKET = 58;
-        protected const int SYNC_OUT_MAX_SIZE_OF_REMAINING_PACKET = 65535;
-        protected const int ASYNC_OUT_MAX_SIZE_OF_DATA = 62;
-        protected const int ASYNC_IN_START_MAX_SIZE_OF_DATA = 62;
+        protected const int TRANSMISSION_TYPE_INDEX = 0;
         protected const int MAX_SIZE_OF_ACK_BYTE = 255;
         protected const int MAX_SIZE_OF_TIMEOUT = 65535;
 
@@ -28,10 +25,7 @@ namespace INFRA.USB.HidToSerial
             ReportToSend = new HidOutputReport();
         }
 
-        protected virtual void ProcessRawData()
-        {
-
-        }
+        protected abstract void ProcessRawData();
 
         protected void Validate(int value, int max, string errMsg = "Invalid range.")
         {
@@ -42,6 +36,7 @@ namespace INFRA.USB.HidToSerial
 
     public class BaudRateCommand_FromHost : HostPacket
     {
+        protected const int BAUD_RATE_INDEX = 1;
         private int _baudRate;
 
         /// <summary>
@@ -71,13 +66,20 @@ namespace INFRA.USB.HidToSerial
 
         protected override void ProcessRawData()
         {
-            ReportToSend.UserData[0] = (byte)TransmisionType;
-            ReportToSend.UserData[1] = (byte)BaudRateIndex;
+            ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
+            ReportToSend.UserData[BAUD_RATE_INDEX] = (byte)BaudRateIndex;
         }
     }
 
     public class SingleQuery_FromHost : HostPacket
     {
+        protected const int SEGMENT_LENGTH_INDEX = 1;
+        protected const int EXPECTED_DATA_LENGTH_INDEX = 2;
+        protected const int TIMEOUT_INDEX = 3;
+        protected const int DATA_INDEX = 5;
+        protected const int MAX_DATA_LENGTH = 59;
+        protected const int MAX_EXPECTED_DATA_LENGTH = 62;
+
         private int _thisSegmentDataLength;
         private int _expectedDataLength;
         private int _timeout;
@@ -88,7 +90,7 @@ namespace INFRA.USB.HidToSerial
             _thisSegmentDataLength = 0;
             _expectedDataLength = 0;
             _timeout = 0;
-            Data = new byte[SINGLE_QUERY_MAX_SIZE_OF_DATA];
+            Data = new byte[MAX_DATA_LENGTH];
         }
 
         /// <summary>
@@ -98,7 +100,7 @@ namespace INFRA.USB.HidToSerial
         {
             set
             {
-                Validate(value, SINGLE_QUERY_MAX_SIZE_OF_DATA);
+                Validate(value, MAX_DATA_LENGTH);
                 _thisSegmentDataLength = value;
             }
             get { return _thisSegmentDataLength; }
@@ -111,7 +113,7 @@ namespace INFRA.USB.HidToSerial
         {
             set
             {
-                Validate(value, SINGLE_QUERY_MAX_SIZE_OF_RESPONSE);
+                Validate(value, MAX_EXPECTED_DATA_LENGTH);
                 _expectedDataLength = value;
             }
             get { return _expectedDataLength; }
@@ -135,9 +137,9 @@ namespace INFRA.USB.HidToSerial
         /// </summary>
         public byte[] Data
         {
-            private set
+            set
             {
-                Validate(value.Length, SINGLE_QUERY_MAX_SIZE_OF_DATA, "Array size is too large to fit.");
+                Validate(value.Length, MAX_DATA_LENGTH, "Array size is too large to fit.");
                 ReportToSend.UserData = value;
                 _thisSegmentDataLength = value.Length;
             }
@@ -152,30 +154,32 @@ namespace INFRA.USB.HidToSerial
         /// <param name="length">Max: 59</param>
         public void SetData(byte[] source, int startIndex, int length)
         {
-            Validate(length, SINGLE_QUERY_MAX_SIZE_OF_DATA, "Data size is too large to fit.");
+            Validate(length, MAX_DATA_LENGTH, "Data size is too large to fit.");
             _thisSegmentDataLength = length;
-            for (var i = 0; i < length; i++)
-            {
-                Data[i] = source[startIndex + i];
-            }
+            Array.Copy(source, startIndex, Data, 0, length);
         }
 
         protected override void ProcessRawData()
         {
-            ReportToSend.UserData[0] = (byte)TransmisionType;
-            ReportToSend.UserData[1] = (byte)ThisSegmentDataLength;
-            ReportToSend.UserData[2] = (byte)ExpectedDataLength;
-            ReportToSend.UserData[3] = BitConverter.GetBytes(Timeout)[0];
-            ReportToSend.UserData[4] = BitConverter.GetBytes(Timeout)[1];
-            for (int i = 0; i < _thisSegmentDataLength; i++)
-            {
-                ReportToSend.UserData[5 + i] = Data[i];
-            }
+            ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
+            ReportToSend.UserData[SEGMENT_LENGTH_INDEX] = (byte)ThisSegmentDataLength;
+            ReportToSend.UserData[EXPECTED_DATA_LENGTH_INDEX] = (byte)ExpectedDataLength;
+            ReportToSend.UserData[TIMEOUT_INDEX] = BitConverter.GetBytes(Timeout)[0];
+            ReportToSend.UserData[TIMEOUT_INDEX + 1] = BitConverter.GetBytes(Timeout)[1];
+            Array.Copy(Data, 0, ReportToSend.UserData, DATA_INDEX, _thisSegmentDataLength);
         }
     }
 
     public class SyncOutData_FromHost : HostPacket
     {
+        protected const int SEGMENT_LENGTH_INDEX = 1;
+        protected const int REMAINING_PACKETS_LENGTH_INDEX = 2;
+        protected const int LAST_PACKET_LENGTH_INDEX = 4;
+        protected const int DEVICE_ACK_BYTE_INDEX = 5;
+        protected const int DATA_INDEX = 6;
+        protected const int MAX_DATA_LENGTH = 58;
+        protected const int MAX_SIZE_OF_REMAINING_PACKET = 65535;
+
         private int _thisSegmentDataLength;
         private int _noOfRemainingPackets;
         private int _lastPacketLength;
@@ -188,7 +192,7 @@ namespace INFRA.USB.HidToSerial
         {
             set
             {
-                Validate(value, SYNC_OUT_MAX_SIZE_OF_DATA);
+                Validate(value, MAX_DATA_LENGTH);
                 _thisSegmentDataLength = value;
             }
             get { return _thisSegmentDataLength; }
@@ -201,7 +205,7 @@ namespace INFRA.USB.HidToSerial
         {
             set
             {
-                Validate(value, SYNC_OUT_MAX_SIZE_OF_REMAINING_PACKET);
+                Validate(value, MAX_SIZE_OF_REMAINING_PACKET);
                 _noOfRemainingPackets = value;
             }
             get { return _noOfRemainingPackets; }
@@ -214,7 +218,7 @@ namespace INFRA.USB.HidToSerial
         {
             set
             {
-                Validate(value, SYNC_OUT_MAX_SIZE_OF_LAST_PACKET);
+                Validate(value, MAX_DATA_LENGTH);
                 _lastPacketLength = value;
             }
             get { return _lastPacketLength; }
@@ -237,7 +241,7 @@ namespace INFRA.USB.HidToSerial
         {
             private set
             {
-                Validate(value.Length, SYNC_OUT_MAX_SIZE_OF_DATA, "Array size is too large to fit.");
+                Validate(value.Length, MAX_DATA_LENGTH, "Array size is too large to fit.");
                 ReportToSend.UserData = value;
                 _thisSegmentDataLength = value.Length;
             }
@@ -251,7 +255,7 @@ namespace INFRA.USB.HidToSerial
             _lastPacketLength = 0;
             _noOfRemainingPackets = 0;
             _deviceAckByte = 0;
-            Data = new byte[SYNC_OUT_MAX_SIZE_OF_DATA];
+            Data = new byte[MAX_DATA_LENGTH];
         }
 
         /// <summary>
@@ -262,31 +266,26 @@ namespace INFRA.USB.HidToSerial
         /// <param name="length">Max: 59</param>
         public void SetData(byte[] source, int startIndex, int length)
         {
-            Validate(length, SYNC_OUT_MAX_SIZE_OF_DATA, "Data size is too large to fit.");
+            Validate(length, MAX_DATA_LENGTH, "Data size is too large to fit.");
             _thisSegmentDataLength = length;
-            for (var i = 0; i < length; i++)
-            {
-                Data[i] = source[startIndex + i];
-            }
+            Array.Copy(source, startIndex, Data, 0, length);
         }
 
         protected override void ProcessRawData()
         {
-            ReportToSend.UserData[0] = (byte)TransmisionType;
-            ReportToSend.UserData[1] = (byte)ThisSegmentDataLength;
-            ReportToSend.UserData[2] = BitConverter.GetBytes(NoOfRemainingPackets)[0];
-            ReportToSend.UserData[3] = BitConverter.GetBytes(NoOfRemainingPackets)[1];
-            ReportToSend.UserData[4] = (byte)LastPacketLength;
-            ReportToSend.UserData[5] = (byte)DeviceAckByte;
-            for (int i = 0; i < _thisSegmentDataLength; i++)
-            {
-                ReportToSend.UserData[6 + i] = Data[i];
-            }
+            ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
+            ReportToSend.UserData[SEGMENT_LENGTH_INDEX] = (byte)ThisSegmentDataLength;
+            ReportToSend.UserData[REMAINING_PACKETS_LENGTH_INDEX] = BitConverter.GetBytes(NoOfRemainingPackets)[0];
+            ReportToSend.UserData[REMAINING_PACKETS_LENGTH_INDEX + 1] = BitConverter.GetBytes(NoOfRemainingPackets)[1];
+            ReportToSend.UserData[LAST_PACKET_LENGTH_INDEX] = (byte)LastPacketLength;
+            ReportToSend.UserData[DEVICE_ACK_BYTE_INDEX] = (byte)DeviceAckByte;
+            Array.Copy(Data, 0, ReportToSend.UserData, DATA_INDEX, _thisSegmentDataLength);
         }
     }
 
     public class SyncInStart_FromHost : HostPacket
     {
+        protected const int TIMEOUT_INDEX = 1;
         private int _timeout;
 
         /// <summary>
@@ -310,9 +309,9 @@ namespace INFRA.USB.HidToSerial
 
         protected override void ProcessRawData()
         {
-            ReportToSend.UserData[0] = (byte)TransmisionType;
-            ReportToSend.UserData[1] = BitConverter.GetBytes(Timeout)[0];
-            ReportToSend.UserData[2] = BitConverter.GetBytes(Timeout)[1];
+            ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
+            ReportToSend.UserData[TIMEOUT_INDEX] = BitConverter.GetBytes(Timeout)[0];
+            ReportToSend.UserData[TIMEOUT_INDEX + 1] = BitConverter.GetBytes(Timeout)[1];
         }
     }
 
@@ -325,12 +324,14 @@ namespace INFRA.USB.HidToSerial
 
         protected override void ProcessRawData()
         {
-            ReportToSend.UserData[0] = (byte)TransmisionType;
+            ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
         }
     }
 
     public class SyncInAck_FromHost : HostPacket
     {
+        protected const int HOST_ACK_BYTE_INDEX = 1;
+
         private int _hostAckByte;
 
         /// <summary>
@@ -353,13 +354,17 @@ namespace INFRA.USB.HidToSerial
 
         protected override void ProcessRawData()
         {
-            ReportToSend.UserData[0] = (byte)TransmisionType;
-            ReportToSend.UserData[1] = (byte)HostAckByte;
+            ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
+            ReportToSend.UserData[HOST_ACK_BYTE_INDEX] = (byte)HostAckByte;
         }
     }
 
     public class AsyncOut_FromHost : HostPacket
     {
+        protected const int SEGMENT_LENGTH_INDEX = 1;
+        protected const int DATA_INDEX = 2;
+        protected const int MAX_DATA_LENGTH = 62;
+
         private int _dataLength;
         public AsyncOut_FromHost()
         {
@@ -373,7 +378,7 @@ namespace INFRA.USB.HidToSerial
         {
             set
             {
-                Validate(value, ASYNC_OUT_MAX_SIZE_OF_DATA);
+                Validate(value, MAX_DATA_LENGTH);
                 _dataLength = value;
             }
             get { return _dataLength; }
@@ -381,9 +386,9 @@ namespace INFRA.USB.HidToSerial
 
         public byte[] Data
         {
-            private set
+            set
             {
-                Validate(value.Length, ASYNC_OUT_MAX_SIZE_OF_DATA, "Array size is too large to fit.");
+                Validate(value.Length, MAX_DATA_LENGTH, "Array size is too large to fit.");
                 ReportToSend.UserData = value;
                 _dataLength = value.Length;
             }
@@ -398,27 +403,25 @@ namespace INFRA.USB.HidToSerial
         /// <param name="length">Max: 62</param>
         public void SetData(byte[] source, int startIndex, int length)
         {
-            Validate(length, ASYNC_OUT_MAX_SIZE_OF_DATA, "Data size is too large to fit.");
+            Validate(length, MAX_DATA_LENGTH, "Data size is too large to fit.");
             _dataLength = length;
-            for (var i = 0; i < length; i++)
-            {
-                Data[i] = source[startIndex + i];
-            }
+            Array.Copy(source, startIndex, Data, 0, length);
         }
 
         protected override void ProcessRawData()
         {
-            ReportToSend.UserData[0] = (byte)TransmisionType;
-            ReportToSend.UserData[1] = (byte)ThisSegmentDataLength;
-            for (int i = 0; i < _dataLength; i++)
-            {
-                ReportToSend.UserData[2 + i] = Data[i];
-            }
+            ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
+            ReportToSend.UserData[SEGMENT_LENGTH_INDEX] = (byte)ThisSegmentDataLength;
+            Array.Copy(Data, 0, ReportToSend.UserData, DATA_INDEX, _dataLength);
         }
     }
 
     public class AsyncInStart_FromHost : HostPacket
     {
+        protected const int REQIRED_DATA_LENGTH_INDEX = 1;
+        protected const int TIMEOUT_INDEX = 2;
+        protected const int MAX_EXPECTED_DATA_LENGTH = 62;
+
         private int _requiredDataLength;
         private int _timeout;
         public AsyncInStart_FromHost()
@@ -435,7 +438,7 @@ namespace INFRA.USB.HidToSerial
         {
             set
             {
-                Validate(value, ASYNC_IN_START_MAX_SIZE_OF_DATA);
+                Validate(value, MAX_EXPECTED_DATA_LENGTH);
                 _requiredDataLength = value;
             }
             get { return _requiredDataLength; }
@@ -456,10 +459,10 @@ namespace INFRA.USB.HidToSerial
 
         protected override void ProcessRawData()
         {
-            ReportToSend.UserData[0] = (byte)TransmisionType;
-            ReportToSend.UserData[1] = (byte)RequiredDataLength;
-            ReportToSend.UserData[2] = BitConverter.GetBytes(Timeout)[0];
-            ReportToSend.UserData[3] = BitConverter.GetBytes(Timeout)[1];
+            ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
+            ReportToSend.UserData[REQIRED_DATA_LENGTH_INDEX] = (byte)RequiredDataLength;
+            ReportToSend.UserData[TIMEOUT_INDEX] = BitConverter.GetBytes(Timeout)[0];
+            ReportToSend.UserData[TIMEOUT_INDEX + 1] = BitConverter.GetBytes(Timeout)[1];
         }
     }
 
@@ -472,7 +475,7 @@ namespace INFRA.USB.HidToSerial
 
         protected override void ProcessRawData()
         {
-            ReportToSend.UserData[0] = (byte)TransmisionType;
+            ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
         }
     } 
 }

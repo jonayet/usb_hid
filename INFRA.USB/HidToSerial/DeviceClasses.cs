@@ -3,31 +3,25 @@ using INFRA.USB.HelperClasses;
 
 namespace INFRA.USB.HidToSerial
 {
+    // ReSharper disable CSharpWarnings::CS1591
+    // ReSharper disable InconsistentNaming
+
     public abstract class DevicePacket
     {
+        protected const int TRANSMISSION_TYPE_INDEX = 0;
+
         public HidInputReport ReportReceived
         {
-            protected set { _rawReport = value; ProcessRawReport(); }
+            internal set { _rawReport = value; ProcessRawReport(); }
             get { return _rawReport; }
         }
         public DeviceTransmisionType TransmisionType { get; protected set; }
-        public byte[] DataReceived { get; protected set; }
-        public int ThisSegmentDataLength { get; internal set; }
-        public int NoOfRemainingPackets { get; protected set; }
-        public int LastPacketLength { get; protected set; }
-        public int DeviceAckByte { get; protected set; }
-        public int HostAckByte { get; protected set; }
 
         private HidInputReport _rawReport;
-        public DevicePacket()
+
+        protected DevicePacket()
         {
             _rawReport = new HidInputReport();
-            DataReceived = new byte[0];
-            ThisSegmentDataLength = 0;
-            NoOfRemainingPackets = 0;
-            LastPacketLength = 0;
-            DeviceAckByte = 0;
-            HostAckByte = 0;
         }
 
         protected abstract void ProcessRawReport();
@@ -35,205 +29,148 @@ namespace INFRA.USB.HidToSerial
 
     public class BaudRateResponse_FromDevice : DevicePacket
     {
+        protected const int DATA_INDEX = 1;
+        protected const int MAX_DATA_LENGTH = 40;
+        public byte[] Data { get; private set; }
+
         public BaudRateResponse_FromDevice()
         {
-            TransmisionType = DeviceTransmisionType.BAUDRATE_RESP_FROM_DEVICE;
-            ThisSegmentDataLength = 40;
-        }
-
-        public BaudRateResponse_FromDevice(byte[] rawData)
-        {
-            //_rawBytes = new byte[64];
-            //_dataBytes = new byte[40];
-
-            //// copy raw bytes
-            //HidToSerialCommon.CopyDataArray(ref _rawBytes, rawData, 1, _rawBytes.Length);
-
-            //// get transmission type
-            //_transmissionType = (DeviceTransmisionType)_rawBytes[0];
-
-            //// copy data bytes
-            //HidToSerialCommon.CopyDataArray(ref _dataBytes, _rawBytes, 1, DataBytes.Length);
+            TransmisionType = DeviceTransmisionType.NONE_FROM_DEVICE;
+            Data = new byte[0];
         }
 
         protected override void ProcessRawReport()
         {
-            Array.Copy(ReportReceived.UserData, DataReceived, ThisSegmentDataLength);
+            TransmisionType = (DeviceTransmisionType)ReportReceived.UserData[TRANSMISSION_TYPE_INDEX];
+            Data = new byte[MAX_DATA_LENGTH];
+            Array.Copy(ReportReceived.UserData, DATA_INDEX, Data, 0, MAX_DATA_LENGTH);
         }
     }
 
-    public class SingleResponse_FromDevice
+    public class SingleResponse_FromDevice : DevicePacket
     {
-        private byte[] _rawBytes;
-        private DeviceTransmisionType _transmissionType;
-        private byte[] _dataBytes;
+        protected const int SEGMENT_LENGTH_INDEX = 1;
+        protected const int DATA_INDEX = 2;
+        protected const int MAX_DATA_LENGTH = 62;
 
-        public DeviceTransmisionType DeviceTransmisionType { get { return _transmissionType; } }
+        public int ThisSegmentDataLength { get; protected set; }
+        public byte[] Data { get; private set; }
 
-        /// <summary>
-        /// Max: 62
-        /// </summary>
-        public int ThisSegmentDataLength { get; private set; }
-        public byte[] DataBytes { get { return _dataBytes; } }
-
-        public SingleResponse_FromDevice(byte[] rawData)
+        public SingleResponse_FromDevice()
         {
-            _rawBytes = new byte[64];
+            TransmisionType = DeviceTransmisionType.NONE_FROM_DEVICE;
+            ThisSegmentDataLength = 0;
+            Data = new byte[0];
+        }
 
-            // copy raw bytes
-            HidToSerialCommon.CopyDataArray(ref _rawBytes, rawData, 1, _rawBytes.Length);
-
-            // get transmission type
-            _transmissionType = (DeviceTransmisionType)_rawBytes[0];
-
-            // get data length
-            ThisSegmentDataLength = _rawBytes[1];
-
-            // copy data bytes
-            _dataBytes = new byte[ThisSegmentDataLength];
-            HidToSerialCommon.CopyDataArray(ref _dataBytes, _rawBytes, 2, _dataBytes.Length);
+        protected override void ProcessRawReport()
+        {
+            TransmisionType = (DeviceTransmisionType)ReportReceived.UserData[TRANSMISSION_TYPE_INDEX];
+            ThisSegmentDataLength = ReportReceived.UserData[SEGMENT_LENGTH_INDEX];
+            Data = new byte[ThisSegmentDataLength];
+            Array.Copy(ReportReceived.UserData, DATA_INDEX, Data, 0, ThisSegmentDataLength);
         }
     }
 
-    public class SyncOutAck_FromDevice
+    public class SyncOutAck_FromDevice : DevicePacket
     {
-        private byte[] _rawBytes;
-        private DeviceTransmisionType _transmissionType;
+        protected const int DEVICE_ACK_BYTE_INDEX = 1;
 
-        public DeviceTransmisionType DeviceTransmisionType { get { return _transmissionType; } }
+        public int DeviceAckByte { get; protected set; }
 
-        /// <summary>
-        /// 8 bit
-        /// </summary>
-        public int DeviceAckByte { get; private set; }
-
-        public SyncOutAck_FromDevice(byte[] rawData)
+        public SyncOutAck_FromDevice()
         {
-            _rawBytes = new byte[64];
+            TransmisionType = DeviceTransmisionType.NONE_FROM_DEVICE;
+            DeviceAckByte = 0;
+        }
 
-            // copy raw bytes
-            HidToSerialCommon.CopyDataArray(ref _rawBytes, rawData, 1, _rawBytes.Length);
-
-            // get transmission type
-            _transmissionType = (DeviceTransmisionType)_rawBytes[0];
-
-            // get device ack
-            DeviceAckByte = _rawBytes[1];
+        protected override void ProcessRawReport()
+        {
+            TransmisionType = (DeviceTransmisionType)ReportReceived.UserData[TRANSMISSION_TYPE_INDEX];
+            DeviceAckByte = ReportReceived.UserData[DEVICE_ACK_BYTE_INDEX];
         }
     }
 
-    public class SyncInData_FromDevice
+    public class SyncInData_FromDevice : DevicePacket
     {
-        private byte[] _rawBytes;
-        private DeviceTransmisionType _transmissionType;
-        private byte[] _dataBytes;
+        protected const int SEGMENT_LENGTH_INDEX = 1;
+        protected const int REMAINING_PACKETS_LENGTH_INDEX = 2;
+        protected const int LAST_PACKET_LENGTH_INDEX = 3;
+        protected const int HOST_ACK_BYTE_INDEX = 4;
+        protected const int DATA_INDEX = 5;
+        protected const int MAX_DATA_LENGTH = 59;
+        
+        public int ThisSegmentDataLength { get; protected set; }
+        public int NoOfRemainingPackets { get; protected set; }
+        public int LastPacketLength { get; protected set; }
+        public int HostAckByte { get; protected set; }
+        public byte[] Data { get; protected set; }
 
-        public DeviceTransmisionType DeviceTransmisionType { get { return _transmissionType; } }
-
-        /// <summary>
-        /// Max: 59
-        /// </summary>
-        public int ThisSegmentDataLength { get; private set; }
-
-        /// <summary>
-        /// Max: 15
-        /// </summary>
-        public int NoOfRemainingPackets { get; private set; }
-
-        /// <summary>
-        /// Max: 59
-        /// </summary>
-        public int LastPacketLength { get; private set; }
-
-        /// <summary>
-        /// 8 bit
-        /// </summary>
-        public int HostAckByte { get; private set; }
-        public byte[] DataBytes { get { return _dataBytes; } }
-
-        public SyncInData_FromDevice(byte[] rawData)
+        public SyncInData_FromDevice()
         {
-            _rawBytes = new byte[64];
+            TransmisionType = DeviceTransmisionType.NONE_FROM_DEVICE;
+            ThisSegmentDataLength = 0;
+            NoOfRemainingPackets = 0;
+            LastPacketLength = 0;
+            HostAckByte = 0;
+            Data = new byte[0];
+        }
 
-            // copy raw bytes
-            HidToSerialCommon.CopyDataArray(ref _rawBytes, rawData, 1, _rawBytes.Length);
-
-            // get transmission type
-            _transmissionType = (DeviceTransmisionType)_rawBytes[0];
-
-            // get data length
-            ThisSegmentDataLength = _rawBytes[1];
-
-            // get NoOfRemainingPackets
-            NoOfRemainingPackets = _rawBytes[2];
-
-            // get LastPacketLength
-            LastPacketLength = _rawBytes[3];
-
-            // get HostAckByte
-            HostAckByte = _rawBytes[4];
-
-            // copy data bytes
-            _dataBytes = new byte[ThisSegmentDataLength];
-            HidToSerialCommon.CopyDataArray(ref _dataBytes, _rawBytes, 5, _dataBytes.Length);
+        protected override void ProcessRawReport()
+        {
+            TransmisionType = (DeviceTransmisionType)ReportReceived.UserData[TRANSMISSION_TYPE_INDEX];
+            ThisSegmentDataLength = ReportReceived.UserData[SEGMENT_LENGTH_INDEX];
+            NoOfRemainingPackets = ReportReceived.UserData[REMAINING_PACKETS_LENGTH_INDEX];
+            LastPacketLength = ReportReceived.UserData[LAST_PACKET_LENGTH_INDEX];
+            HostAckByte = ReportReceived.UserData[HOST_ACK_BYTE_INDEX];
+            Data = new byte[ThisSegmentDataLength];
+            Array.Copy(ReportReceived.UserData, DATA_INDEX, Data, 0, ThisSegmentDataLength);
         }
     }
 
-    public class AsyncInData_FromDevice
+    public class AsyncInData_FromDevice : DevicePacket
     {
-        private byte[] _rawBytes;
-        private DeviceTransmisionType _transmissionType;
-        private byte[] _dataBytes;
+        protected const int SEGMENT_LENGTH_INDEX = 1;
+        protected const int DATA_INDEX = 2;
+        protected const int MAX_DATA_LENGTH = 62;
 
-        public DeviceTransmisionType DeviceTransmisionType { get { return _transmissionType; } }
+        public int ThisSegmentDataLength { get; protected set; }
+        public byte[] Data { get; protected set; }
 
-        /// <summary>
-        /// Max: 62
-        /// </summary>
-        public int ThisSegmentDataLength { get; private set; }
-        public byte[] DataBytes { get { return _dataBytes; } }
-
-        public AsyncInData_FromDevice(byte[] rawData)
+        public AsyncInData_FromDevice()
         {
-            _rawBytes = new byte[64];
+            TransmisionType = DeviceTransmisionType.NONE_FROM_DEVICE;
+            ThisSegmentDataLength = 0;
+            Data = new byte[0];
+        }
 
-            // copy raw bytes
-            HidToSerialCommon.CopyDataArray(ref _rawBytes, rawData, 1, _rawBytes.Length);
-
-            // get transmission type
-            _transmissionType = (DeviceTransmisionType)_rawBytes[0];
-
-            // get data length
-            ThisSegmentDataLength = _rawBytes[1];
-
-            // copy data bytes
-            _dataBytes = new byte[ThisSegmentDataLength];
-            HidToSerialCommon.CopyDataArray(ref _dataBytes, _rawBytes, 2, _dataBytes.Length);
+        protected override void ProcessRawReport()
+        {
+            TransmisionType = (DeviceTransmisionType)ReportReceived.UserData[TRANSMISSION_TYPE_INDEX];
+            ThisSegmentDataLength = ReportReceived.UserData[SEGMENT_LENGTH_INDEX];
+            Data = new byte[ThisSegmentDataLength];
+            Array.Copy(ReportReceived.UserData, DATA_INDEX, Data, 0, ThisSegmentDataLength);
         }
     }
 
-    public class UnknownResponse_FromDevice
+    public class UnknownResponse_FromDevice : DevicePacket
     {
-        private byte[] _rawBytes;
-        private DeviceTransmisionType _transmissionType;
-        private byte[] _dataBytes;
+        protected const int DATA_INDEX = 1;
+        protected const int MAX_DATA_LENGTH = 10;
 
-        public DeviceTransmisionType DeviceTransmisionType { get { return _transmissionType; } }
-        public byte[] DataBytes { get { return _dataBytes; } }
+        public byte[] Data { get; protected set; }
 
-        public UnknownResponse_FromDevice(byte[] rawData)
+        public UnknownResponse_FromDevice()
         {
-            _rawBytes = new byte[64];
-            _dataBytes = new byte[10];
+            TransmisionType = DeviceTransmisionType.NONE_FROM_DEVICE;
+            Data = new byte[0];
+        }
 
-            // copy raw bytes
-            HidToSerialCommon.CopyDataArray(ref _rawBytes, rawData, 1, _rawBytes.Length);
-
-            // get transmission type
-            _transmissionType = (DeviceTransmisionType)_rawBytes[0];
-
-            // copy data bytes
-            HidToSerialCommon.CopyDataArray(ref _dataBytes, _rawBytes, 1, _dataBytes.Length);
+        protected override void ProcessRawReport()
+        {
+            TransmisionType = (DeviceTransmisionType)ReportReceived.UserData[TRANSMISSION_TYPE_INDEX];
+            Data = new byte[MAX_DATA_LENGTH];
+            Array.Copy(ReportReceived.UserData, DATA_INDEX, Data, 0, MAX_DATA_LENGTH);
         }
     }
 }
