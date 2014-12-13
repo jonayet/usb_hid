@@ -100,7 +100,7 @@ namespace INFRA.USB.HidHelper
                         Debug.WriteLine(string.Format("HidDeviceNotifier:handleDeviceNotificationMessages() -> A device has been removed"));
 
                         // Was this our target device?  
-                        if (IsNotificationForTargetDevice(m) && !_isAttached)
+                        if (IsNotificationForTargetDevice(m) && _isAttached)
                         {
                             _isAttached = false;
                             // If so detach the USB device.

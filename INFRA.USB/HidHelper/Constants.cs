@@ -1,5 +1,7 @@
 ﻿using System;
 
+// ReSharper disable CSharpWarnings::CS1591
+// ReSharper disable InconsistentNaming
 namespace INFRA.USB.HidHelper
 {
     internal static class Constants

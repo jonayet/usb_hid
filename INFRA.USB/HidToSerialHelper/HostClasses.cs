@@ -13,11 +13,12 @@ namespace INFRA.USB.HidToSerialHelper
         protected const int MAX_SIZE_OF_TIMEOUT = 65535;
 
         public HostTransmisionType TransmisionType { get; protected set; }
+
         public HidOutputReport ReportToSend { get; protected set; }
 
         public byte[] RawData
         {
-            get { ProcessRawData(); return ReportToSend.UserData; }
+            get { return ReportToSend.UserData; }
         }
 
         protected HostPacket()
@@ -25,13 +26,13 @@ namespace INFRA.USB.HidToSerialHelper
             ReportToSend = new HidOutputReport();
         }
 
-        protected abstract void ProcessRawData();
-
         protected void Validate(int value, int max, string errMsg = "Invalid range.")
         {
             if (value < 0 || value > max)
                 throw new ArgumentOutOfRangeException(errMsg);
         }
+
+        public abstract void GenerateReportData();
     }
 
     public class BaudRateCommand_FromHost : HostPacket
@@ -51,7 +52,7 @@ namespace INFRA.USB.HidToSerialHelper
             {
                 if (value != 1 && value != 2 && value != 4 && value != 9 && value != 14 && value != 19 && value != 38 && value != 56 && value != 57 && value != 115 && value != 128)
                 {
-                    throw new ArgumentOutOfRangeException("value must be 1, 2, 3, 4, 9, 14, 19, 38, 56, 57, 115 or 128");
+                    throw new ApplicationException("value must be 1, 2, 3, 4, 9, 14, 19, 38, 56, 57, 115 or 128");
                 }
                 _baudRate = value;
             }
@@ -64,7 +65,7 @@ namespace INFRA.USB.HidToSerialHelper
             _baudRate = 9;
         }
 
-        protected override void ProcessRawData()
+        public override void GenerateReportData()
         {
             ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
             ReportToSend.UserData[BAUD_RATE_INDEX] = (byte)BaudRateIndex;
@@ -135,16 +136,7 @@ namespace INFRA.USB.HidToSerialHelper
         /// <summary>
         /// Max Length: 59
         /// </summary>
-        public byte[] Data
-        {
-            set
-            {
-                Validate(value.Length, MAX_DATA_LENGTH, "Array size is too large to fit.");
-                ReportToSend.UserData = value;
-                _thisSegmentDataLength = value.Length;
-            }
-            get { return ReportToSend.UserData; }
-        }
+        public byte[] Data { get; set; }
 
         /// <summary>
         /// 
@@ -159,7 +151,7 @@ namespace INFRA.USB.HidToSerialHelper
             Array.Copy(source, startIndex, Data, 0, length);
         }
 
-        protected override void ProcessRawData()
+        public override void GenerateReportData()
         {
             ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
             ReportToSend.UserData[SEGMENT_LENGTH_INDEX] = (byte)ThisSegmentDataLength;
@@ -271,7 +263,7 @@ namespace INFRA.USB.HidToSerialHelper
             Array.Copy(source, startIndex, Data, 0, length);
         }
 
-        protected override void ProcessRawData()
+        public override void GenerateReportData()
         {
             ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
             ReportToSend.UserData[SEGMENT_LENGTH_INDEX] = (byte)ThisSegmentDataLength;
@@ -307,7 +299,7 @@ namespace INFRA.USB.HidToSerialHelper
             TransmisionType = HostTransmisionType.SYNC_IN_START_FROM_HOST;
         }
 
-        protected override void ProcessRawData()
+        public override void GenerateReportData()
         {
             ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
             ReportToSend.UserData[TIMEOUT_INDEX] = BitConverter.GetBytes(Timeout)[0];
@@ -322,7 +314,7 @@ namespace INFRA.USB.HidToSerialHelper
             TransmisionType = HostTransmisionType.SYNC_IN_READ_FROM_HOST;
         }
 
-        protected override void ProcessRawData()
+        public override void GenerateReportData()
         {
             ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
         }
@@ -352,7 +344,7 @@ namespace INFRA.USB.HidToSerialHelper
             TransmisionType = HostTransmisionType.SYNC_IN_ACK_FROM_HOST;
         }
 
-        protected override void ProcessRawData()
+        public override void GenerateReportData()
         {
             ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
             ReportToSend.UserData[HOST_ACK_BYTE_INDEX] = (byte)HostAckByte;
@@ -408,7 +400,7 @@ namespace INFRA.USB.HidToSerialHelper
             Array.Copy(source, startIndex, Data, 0, length);
         }
 
-        protected override void ProcessRawData()
+        public override void GenerateReportData()
         {
             ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
             ReportToSend.UserData[SEGMENT_LENGTH_INDEX] = (byte)ThisSegmentDataLength;
@@ -457,7 +449,7 @@ namespace INFRA.USB.HidToSerialHelper
             get { return _timeout; }
         }
 
-        protected override void ProcessRawData()
+        public override void GenerateReportData()
         {
             ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
             ReportToSend.UserData[REQIRED_DATA_LENGTH_INDEX] = (byte)RequiredDataLength;
@@ -473,7 +465,7 @@ namespace INFRA.USB.HidToSerialHelper
             TransmisionType = HostTransmisionType.ASYNC_IN_STOP_FROM_HOST;
         }
 
-        protected override void ProcessRawData()
+        public override void GenerateReportData()
         {
             ReportToSend.UserData[TRANSMISSION_TYPE_INDEX] = (byte)TransmisionType;
         }

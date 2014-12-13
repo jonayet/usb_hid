@@ -4,6 +4,9 @@ using System.Drawing;
 using INFRA.USB.HidHelper;
 using Microsoft.Win32.SafeHandles;
 
+// ReSharper disable CSharpWarnings::CS1591
+// ReSharper disable InconsistentNaming
+
 namespace INFRA.USB
 {
     /// <summary>
@@ -86,7 +89,7 @@ namespace INFRA.USB
         /// <summary>
         /// Device handle open flag
         /// </summary>
-        public bool IsOpen { get; internal set; } 
+        public bool IsConnected { get; internal set; } 
         #endregion
 
         #region private fields
@@ -113,7 +116,7 @@ namespace INFRA.USB
             HidHandle = null;
             ReadHandle = null;
             WriteHandle = null;
-            IsOpen = false;
+            IsConnected = false;
         }
 
         public HidDevice(ushort vendorId, ushort productId, int index = 0)
@@ -130,18 +133,22 @@ namespace INFRA.USB
             IsAttached = _hidDeviceDiscovery.FindDevice(VendorID, ProductID, Index, ref pathString);
             PathString = pathString;
 
+            // create hid device from pathstring
+            HidDevice hidDevice = new HidDevice
+            {
+                PathString = PathString,
+                IsAttached = IsAttached,
+            };
+
+            // create hid communication from device
+            _hidCommunication = new HidCommunication(ref hidDevice);
+            _hidCommunication.ReportReceived += _hidCommunication_ReportReceived;
+
             if (IsAttached)
             {
                 if (OnDeviceAttached != null) OnDeviceAttached(this, EventArgs.Empty);
-                HidDevice hidDevice = new HidDevice
-                {
-                    PathString = PathString,
-                    IsAttached = IsAttached,
-                };
 
                 // open our device
-                _hidCommunication = new HidCommunication(ref hidDevice);
-                _hidCommunication.ReportReceived += _hidCommunication_ReportReceived;
                 _hidCommunication.Open();
 
                 // update current instance
@@ -154,13 +161,13 @@ namespace INFRA.USB
                 HidHandle = hidDevice.HidHandle;
                 ReadHandle = hidDevice.ReadHandle;
                 WriteHandle = hidDevice.WriteHandle;
-                IsOpen = hidDevice.IsOpen;
+                IsConnected = hidDevice.IsConnected;
             }
 
             // start Hid device Notifier event
             var hidNotifier = new HidDeviceNotifier(VendorID, ProductID, IsAttached);
-            HidDeviceNotifier.DeviceAttached += new EventHandler(devNotifier_DeviceAttached);
-            HidDeviceNotifier.DeviceDetached += new EventHandler(devNotifier_DeviceDetached);
+            HidDeviceNotifier.DeviceAttached += devNotifier_DeviceAttached;
+            HidDeviceNotifier.DeviceDetached += devNotifier_DeviceDetached;
             hidNotifier.Start();
         }
 

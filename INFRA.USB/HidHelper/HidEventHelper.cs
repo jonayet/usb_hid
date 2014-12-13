@@ -1,5 +1,8 @@
 ﻿using System;
 
+// ReSharper disable CSharpWarnings::CS1591
+// ReSharper disable InconsistentNaming
+
 namespace INFRA.USB.HidHelper
 {
     public delegate void ReportRecievedEventHandler(object sender, ReportRecievedEventArgs e);

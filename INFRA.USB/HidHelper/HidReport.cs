@@ -10,12 +10,12 @@ namespace INFRA.USB.HidHelper
         /// <summary>
         /// Get maximum length that can hold a single report
         /// </summary>
-        public static int ReportDataLength { get; internal set; }
+        public int ReportDataLength { get; private set; }
 
         /// <summary>
         /// Get maximum length of Data that can hold a single report
         /// </summary>
-        public static int UserDataLength { get { return ReportDataLength - 1; } }
+        public int UserDataLength { get { return ReportDataLength - 1; } }
 
 	    /// <summary>
 	    /// 
@@ -49,9 +49,11 @@ namespace INFRA.USB.HidHelper
 	    /// <summary>
 	    /// Construction. Setup the buffer with the correct output report length dictated by the device
 	    /// </summary>
-        public HidOutputReport()
+        public HidOutputReport(int length = 65)
 	    {
+	        ReportDataLength = length;
             _reportData = new byte[ReportDataLength];
+            _userData = new byte[UserDataLength];
 	    }
 	}
 
@@ -64,12 +66,12 @@ namespace INFRA.USB.HidHelper
         /// <summary>
         /// Get maximum length that can hold a single report
         /// </summary>
-        public static int ReportDataLength { get; set; }
+        public int ReportDataLength { get; private set; }
 
         /// <summary>
         /// Get maximum length of Data that can hold a single report
         /// </summary>
-        public static int UserDataLength { get { return ReportDataLength - 1; } }
+        public int UserDataLength { get { return ReportDataLength - 1; } }
 
         /// <summary>
         /// 
@@ -102,9 +104,10 @@ namespace INFRA.USB.HidHelper
 	    /// <summary>
 	    /// Construction. Setup the buffer with the correct output report length dictated by the device
 	    /// </summary>
-        public HidInputReport()
+        public HidInputReport(int length = 65)
 	    {
-	        ReportDataLength = 1;
+            ReportDataLength = length;
+            _reportData = new byte[length];
             _userData = new byte[UserDataLength];
 	    }
 	}

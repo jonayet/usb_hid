@@ -36,14 +36,9 @@ namespace INFRA.USB.HidHelper
 		/// </summary>
         public bool Open()
         {
+            if (_hidDevice.IsConnected) { return true; }
             if (!_hidDevice.IsAttached) { return false; }
-            if (_hidDevice.IsOpen) { return false; }
-
-            // do we have device PathString?
-            if (string.IsNullOrEmpty(_hidDevice.PathString))
-            {
-                return false;
-            }
+            if (string.IsNullOrEmpty(_hidDevice.PathString)) { return false; }
 
             try
             {
@@ -65,10 +60,6 @@ namespace INFRA.USB.HidHelper
 
                 // get ProductVersion, Manufacturer, ProductName & SerialNumber and update the _hidDevice
                 GetAdditionalDeviceInfo();
-
-                // set report data length
-                HidInputReport.ReportDataLength = _hidDevice.MaxInputReportLength;
-                HidOutputReport.ReportDataLength = _hidDevice.MaxOutputReportLength;
 
                 // Open the readHandle to the device
                 Debug.WriteLine("HidCommunication:Open() -> Opening a ReadHandle to the device");
@@ -106,7 +97,7 @@ namespace INFRA.USB.HidHelper
                 _usbReadFileStream = new FileStream(_hidDevice.ReadHandle, FileAccess.Read, _hidDevice.MaxInputReportLength, true);
                 BeginAsyncRead();
                 
-                _hidDevice.IsOpen = true;
+                _hidDevice.IsConnected = true;
                 return true;
             }
             catch (Exception ex)
@@ -126,15 +117,11 @@ namespace INFRA.USB.HidHelper
             try
             {
                 Debug.WriteLine("HidCommunication:Close() -> start closing handles...");
-                lock (_usbReadFileStream)
-                {
-                    Monitor.Pulse(_usbReadFileStream);
-                }
                 if (_usbReadFileStream != null) { _usbReadFileStream.Close(); }
                 if (!_hidDevice.ReadHandle.IsInvalid) { _hidDevice.ReadHandle.Close(); }
                 if (!_hidDevice.WriteHandle.IsInvalid) { _hidDevice.WriteHandle.Close(); }
                 if (!_hidDevice.HidHandle.IsInvalid) { _hidDevice.HidHandle.Close(); }
-                _hidDevice.IsOpen = false;
+                _hidDevice.IsConnected = false;
                 Debug.WriteLine("HidCommunication:Close() -> closing complete!----------------");
             }
             catch (Exception ex)
@@ -146,7 +133,7 @@ namespace INFRA.USB.HidHelper
         public bool WriteReport(HidOutputReport report)
         {
             // Make sure a device is attached & opened
-            if (!_hidDevice.IsAttached | !_hidDevice.IsOpen)
+            if (!_hidDevice.IsAttached | !_hidDevice.IsConnected)
             {
                 Debug.WriteLine("HidCommunication:WriteReport(): -> No device attached or Target device is Closed!");
                 return false;
@@ -175,7 +162,6 @@ namespace INFRA.USB.HidHelper
                 lock (_usbReadFileStream)
                 {
                     _usbReadFileStream.BeginRead(arrInputReport, 0, _hidDevice.MaxInputReportLength, AsyncReadCompleted, arrInputReport);
-                    Monitor.Wait(_usbReadFileStream, 1000);
                 }
             }
             catch (ObjectDisposedException ex) { Debug.WriteLine("HidCommunication:BeginAsyncRead(): -> " + ex.ToString()); }
@@ -195,7 +181,6 @@ namespace INFRA.USB.HidHelper
                 lock (_usbReadFileStream)
                 {
                     _usbReadFileStream.EndRead(iResult);
-                    Monitor.Pulse(_usbReadFileStream);
 
                     // fire the ReportReceived event
                     if (ReportReceived != null)

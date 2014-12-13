@@ -1,6 +1,10 @@
-﻿using System.Threading;
+﻿using System.Text;
+using System.Threading;
 using INFRA.USB.HidHelper;
 using INFRA.USB.HidToSerialHelper;
+
+// ReSharper disable CSharpWarnings::CS1591
+// ReSharper disable InconsistentNaming
 
 namespace INFRA.USB
 {
@@ -33,7 +37,7 @@ namespace INFRA.USB
         /// </summary>
         public HidDevice HidDevice { get; private set; }
 
-        
+        private const int ResponseWaitTimeOut = 2000;
         private readonly ManualResetEvent _signalEvent;
         private HidInputReport _lastInputReport;
 
@@ -57,34 +61,58 @@ namespace INFRA.USB
             HidDevice.Dispose();
         }
 
-        void _hidDevice_OnReportReceived(object sender, ReportRecievedEventArgs e)
-        {
-            DeviceTransmisionType = (DeviceTransmisionType)e.Report.UserData[0];
-            _lastInputReport = e.Report;
-            _signalEvent.Set();
-        }
-
-        public SingleResponse_FromDevice SingleQuery(SingleQuery_FromHost query)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="baudRateIndex">if 1, Baudrate : 1200; if 2, Baudrate : 2400; if 4, Baudrate : 4800; if 9, Baudrate : 9600; if 14, Baudrate : 14400; if 19, Baudrate : 19200; if 38, Baudrate : 38400; if 56, Baudrate : 56000; if 57, Baudrate : 57600; if 115, Baudrate : 115200; if 128, Baudrate : 128000;</param>
+        /// <param name="response"></param>
+        public bool SetBaudRate(int baudRateIndex, out string response)
         {
             lock (HidDevice)
             {
-                //_hidInterface.Write(query.ReportToSend);
+                var baudRatePacket = new BaudRateCommand_FromHost {BaudRateIndex = baudRateIndex};
+                baudRatePacket.GenerateReportData();
+                HidDevice.Write(baudRatePacket.ReportToSend);
                 _signalEvent.Reset();
-                if (_signalEvent.WaitOne(1000))
+                if (_signalEvent.WaitOne(ResponseWaitTimeOut))
                 {
-                    if (DeviceTransmisionType == DeviceTransmisionType.SINGLE_RESPONSE_FROM_DEVICE)
+                    if (DeviceTransmisionType == DeviceTransmisionType.BAUDRATE_RESP_FROM_DEVICE)
                     {
-                        var response = new SingleResponse_FromDevice { ReportReceived = _lastInputReport };
-                        Data = response.Data;
-                        DeviceSegmentLength = response.ThisSegmentDataLength;
-                        return response;
+                        var resp = new BaudRateResponse_FromDevice {ReportReceived = _lastInputReport};
+                        Data = resp.Data;
+                        DeviceSegmentLength = resp.Data.Length;
+                        response = Encoding.UTF8.GetString(Data, 0, Data.Length);
+                        return true;
                     }
                 }
             }
-            return null;
+            response = "";
+            return false;
         }
 
-        public SingleResponse_FromDevice SingleQuery(byte[] data,  int expectedDataLength = 0, int timeout_ms = 0)
+        public bool SingleQuery(SingleQuery_FromHost query, out SingleResponse_FromDevice response)
+        {
+            lock (HidDevice)
+            {
+                query.GenerateReportData();
+                HidDevice.Write(query.ReportToSend);
+                _signalEvent.Reset();
+                if (_signalEvent.WaitOne(ResponseWaitTimeOut))
+                {
+                    if (DeviceTransmisionType == DeviceTransmisionType.SINGLE_RESPONSE_FROM_DEVICE)
+                    {
+                        response = new SingleResponse_FromDevice { ReportReceived = _lastInputReport };
+                        Data = response.Data;
+                        DeviceSegmentLength = response.ThisSegmentDataLength;
+                        return true;
+                    }
+                }
+            }
+            response = new SingleResponse_FromDevice();
+            return false;
+        }
+
+        public bool SingleQuery(byte[] data, int expectedDataLength, int timeout_ms, out SingleResponse_FromDevice response)
         {
             var aQuery = new SingleQuery_FromHost
             {
@@ -93,7 +121,7 @@ namespace INFRA.USB
                 Timeout = timeout_ms,
                 ThisSegmentDataLength = data.Length
             };
-            return SingleQuery(aQuery);
+            return SingleQuery(aQuery, out response);
         }
 
         /*
@@ -207,35 +235,6 @@ namespace INFRA.USB
             _isPacketReceiving = HasResponse();
             if (!_isPacketReceiving)
                 System.Threading.Thread.Sleep(50);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="baudRateIndex">if 1, Baudrate : 1200; if 2, Baudrate : 2400; if 4, Baudrate : 4800; if 9, Baudrate : 9600; if 14, Baudrate : 14400; if 19, Baudrate : 19200; if 38, Baudrate : 38400; if 56, Baudrate : 56000; if 57, Baudrate : 57600; if 115, Baudrate : 115200; if 128, Baudrate : 128000;</param>
-        public void SendBaudRatePacket(int baudRateIndex)
-        {
-            BaudRateCommand_FromHost baudRatePacket = new BaudRateCommand_FromHost();
-            baudRatePacket.BaudRateIndex = baudRateIndex;
-            _hostTransmisionType = baudRatePacket.HostTransmisionType;
-            SendPacketData(baudRatePacket.RawBytes);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="dataBytes">Max Length: 59</param>
-        /// <param name="expectedDataLength">Max: 62</param>
-        /// <param name="timeout">Max: 65535</param>
-        public void SendSingleQueryPacket(byte[] dataBytes, int expectedDataLength, int timeout)
-        {
-            SingleQuery_FromHost singleQueryPacket = new SingleQuery_FromHost();
-            singleQueryPacket.ThisSegmentDataLength = dataBytes.Length;
-            singleQueryPacket.ExpectedDataLength = expectedDataLength;
-            singleQueryPacket.Timeout = timeout;
-            singleQueryPacket.SetData(dataBytes, 0, singleQueryPacket.ThisSegmentDataLength);
-            _hostTransmisionType = singleQueryPacket.HostTransmisionType;
-            SendPacketData(singleQueryPacket.RawBytes);
         }
 
         bool isSyncPacketPending = false;
@@ -396,6 +395,13 @@ namespace INFRA.USB
             }
         }
         */
+
+        void _hidDevice_OnReportReceived(object sender, ReportRecievedEventArgs e)
+        {
+            DeviceTransmisionType = (DeviceTransmisionType)e.Report.UserData[0];
+            _lastInputReport = e.Report;
+            _signalEvent.Set();
+        }
         #endregion
     }
 
