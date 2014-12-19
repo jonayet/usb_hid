@@ -5,6 +5,7 @@ using INFRA.USB.HidToSerialHelper;
 
 // ReSharper disable CSharpWarnings::CS1591
 // ReSharper disable InconsistentNaming
+// ReSharper disable UnusedMember.Local
 
 namespace INFRA.USB
 {
