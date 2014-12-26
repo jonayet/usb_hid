@@ -189,6 +189,7 @@ namespace INFRA.USB.HidHelper
                     }
                 }
             }
+            catch (OperationCanceledException ex) { Debug.WriteLine("HidCommunication:AsyncReadCompleted(): -> " + ex.ToString()); }
             catch (ThreadInterruptedException ex) { Debug.WriteLine("HidCommunication:AsyncReadCompleted(): -> " + ex.ToString()); }
             catch (SynchronizationLockException ex) { Debug.WriteLine("HidCommunication:AsyncReadCompleted(): -> " + ex.ToString()); }
             catch (ArgumentException ex) { Debug.WriteLine("HidCommunication:AsyncReadCompleted(): -> " + ex.ToString()); }
