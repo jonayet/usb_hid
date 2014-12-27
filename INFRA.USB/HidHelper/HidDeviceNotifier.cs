@@ -19,6 +19,7 @@ namespace INFRA.USB.HidHelper
         private readonly ushort _vendorId;
         private readonly ushort _productId;
         private bool _isAttached;
+        private Thread _notifierThread;
         #endregion
 
         #region constructor
@@ -33,18 +34,19 @@ namespace INFRA.USB.HidHelper
         #region public methods
         public void Start()
         {
-            var t = new Thread(RunForm);
-            t.Name = "HidDeviceNotifier";
-            t.SetApartmentState(ApartmentState.STA);
-            t.IsBackground = true;
-            t.Start();
+            var _notifierThread = new Thread(RunForm)
+            {
+                Name = "HidDeviceNotifier",
+                IsBackground = true,
+            };
+            _notifierThread.SetApartmentState(ApartmentState.STA);
+            _notifierThread.Start();
         }
 
         public void Stop()
         {
             try
             {
-                if (_instance == null) throw new InvalidOperationException("Notifier not started");
                 _instance.Invoke(new MethodInvoker(_instance.EndForm));
             }
             catch (Exception ex)
@@ -158,6 +160,7 @@ namespace INFRA.USB.HidHelper
         private void EndForm()
         {
             Close();
+            _notifierThread.Abort();
         }
 
         private void ReportDeviceAttached(Message m)

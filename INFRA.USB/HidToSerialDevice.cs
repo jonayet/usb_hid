@@ -59,7 +59,7 @@ namespace INFRA.USB
 
         public void Close()
         {
-            HidDevice.Dispose();
+            HidDevice.Disconnect();
         }
 
         /// <summary>

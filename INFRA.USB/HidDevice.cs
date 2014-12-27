@@ -95,6 +95,8 @@ namespace INFRA.USB
         #region private fields
         private HidCommunication _hidCommunication;
         private HidDeviceDiscovery _hidDeviceDiscovery;
+        private HidDeviceNotifier _hidNotifier;
+
         #endregion
 
         /// <summary>
@@ -165,10 +167,28 @@ namespace INFRA.USB
             }
 
             // start Hid device Notifier event
-            var hidNotifier = new HidDeviceNotifier(VendorID, ProductID, IsAttached);
+            _hidNotifier = new HidDeviceNotifier(VendorID, ProductID, IsAttached);
             HidDeviceNotifier.DeviceAttached += devNotifier_DeviceAttached;
             HidDeviceNotifier.DeviceDetached += devNotifier_DeviceDetached;
-            hidNotifier.Start();
+            _hidNotifier.Start();
+        }
+
+        public void Disconnect()
+        {
+            if (_hidCommunication != null)
+            {
+                _hidCommunication.ReportReceived -= _hidCommunication_ReportReceived;
+                _hidCommunication.Close();
+                _hidCommunication.Dispose();
+            }
+
+            if (_hidNotifier != null)
+            {
+                HidDeviceNotifier.DeviceAttached -= devNotifier_DeviceAttached;
+                HidDeviceNotifier.DeviceDetached -= devNotifier_DeviceDetached;
+                _hidNotifier.Stop();
+                _hidNotifier.Dispose();
+            }
         }
 
         public bool Write(HidOutputReport report)
@@ -200,6 +220,14 @@ namespace INFRA.USB
         {
             if (OnReportReceived != null) OnReportReceived(this, e);
         }
+        #endregion
+
+        #region override functions
+        protected override void Dispose(bool disposing)
+        {
+            Disconnect();
+            base.Dispose(disposing);
+        } 
         #endregion
 
         #region Event properties
